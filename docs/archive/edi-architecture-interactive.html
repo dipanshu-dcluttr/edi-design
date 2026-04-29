@@ -1,0 +1,747 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDI Integration Architecture - Interactive</title>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/cytoscape-dagre@2.5.0/cytoscape-dagre.min.js"></script>
+  <style>
+    :root {
+      --bg: #090d12;
+      --panel: #111821;
+      --panel-2: #151e29;
+      --line: #283747;
+      --text: #eef5fb;
+      --muted: #9fb0c2;
+      --edge: #90a4ba;
+      --edge-layer: #8491a4;
+      --queue: #d99436;
+      --core: #35a0e0;
+      --plugin: #a78bfa;
+      --store: #40c78a;
+      --risk: #ef5f5f;
+      --ops: #f3c950;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.03), transparent 260px),
+        var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      letter-spacing: 0;
+    }
+    header {
+      padding: 22px 26px 16px;
+      border-bottom: 1px solid var(--line);
+      background: rgba(12, 17, 24, 0.92);
+      position: sticky;
+      top: 0;
+      z-index: 4;
+      backdrop-filter: blur(10px);
+    }
+    h1 { margin: 0 0 6px; font-size: 28px; }
+    header p { margin: 0; color: var(--muted); max-width: 1120px; line-height: 1.45; }
+    .shell {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 380px;
+      min-height: calc(100vh - 91px);
+    }
+    .main {
+      padding: 18px;
+      min-width: 0;
+    }
+    .side {
+      border-left: 1px solid var(--line);
+      background: #0d131a;
+      padding: 18px;
+      overflow: auto;
+    }
+    .toolbar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+      margin-bottom: 12px;
+    }
+    button {
+      border: 1px solid #3b4d61;
+      color: var(--text);
+      background: #121b25;
+      border-radius: 6px;
+      padding: 8px 11px;
+      font: inherit;
+      font-size: 13px;
+      cursor: pointer;
+    }
+    button:hover { background: #182433; border-color: #58728d; }
+    .legend {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-left: auto;
+    }
+    .legend span {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+    .graph-card {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #0c1118;
+      overflow: hidden;
+      min-height: 720px;
+    }
+    #cy {
+      width: 100%;
+      height: 720px;
+      display: block;
+    }
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      margin-top: 14px;
+    }
+    .tab {
+      padding: 10px;
+      text-align: center;
+      background: #111821;
+      border-right: 1px solid var(--line);
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    .tab:last-child { border-right: none; }
+    .tab.active { background: #182435; color: var(--text); }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      margin-top: 14px;
+      padding: 16px;
+    }
+    .panel h2, .side h2 { margin: 0 0 10px; font-size: 19px; }
+    .panel h3, .side h3 { margin: 16px 0 8px; font-size: 15px; }
+    .panel p, .side p, .panel li, .side li {
+      color: var(--muted);
+      line-height: 1.45;
+      font-size: 14px;
+    }
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+    }
+    .card {
+      border: 1px solid #344457;
+      border-radius: 8px;
+      background: var(--panel-2);
+      padding: 12px;
+      min-height: 126px;
+    }
+    .card h3 { margin-top: 0; color: var(--text); }
+    code {
+      color: #dfe8f3;
+      background: #0a1017;
+      border: 1px solid #2a3948;
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      white-space: pre-wrap;
+      color: #dfe8f3;
+      background: #0a1017;
+      border: 1px solid #2a3948;
+      border-radius: 8px;
+      padding: 12px;
+      font-size: 12px;
+      overflow: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+      margin-top: 10px;
+    }
+    th, td {
+      border: 1px solid #344457;
+      padding: 8px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #182334; color: var(--text); }
+    .flow-strip {
+      display: grid;
+      grid-template-columns: repeat(7, 1fr);
+      gap: 8px;
+      margin-top: 10px;
+    }
+    .step {
+      border: 1px solid #3b4d61;
+      border-radius: 8px;
+      background: #111a24;
+      padding: 10px;
+      min-height: 88px;
+    }
+    .step strong { display: block; margin-bottom: 4px; }
+    .step small { color: var(--muted); line-height: 1.25; display: block; }
+    .hidden { display: none; }
+    @media (max-width: 1100px) {
+      .shell { grid-template-columns: 1fr; }
+      .side { border-left: none; border-top: 1px solid var(--line); }
+      .legend { margin-left: 0; }
+      .cards, .flow-strip { grid-template-columns: 1fr 1fr; }
+    }
+    @media (max-width: 680px) {
+      header { padding: 18px; }
+      h1 { font-size: 23px; }
+      .main { padding: 12px; }
+      .tabs { grid-template-columns: 1fr 1fr; }
+      .cards, .flow-strip { grid-template-columns: 1fr; }
+      #cy { height: 620px; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>EDI Integration Platform Architecture</h1>
+    <p>Interactive, color-coded architecture for Blinkit-first EDI workflows: platform webhook tracing, configurable workflow steps, plugin-based validation/actions, ASN polling, user-created amendments, audit, retries, and scale.</p>
+  </header>
+  <div class="shell">
+    <main class="main">
+      <div class="toolbar">
+        <button onclick="setGraph('system')">System Graph</button>
+        <button onclick="setGraph('po')">PO Flow</button>
+        <button onclick="setGraph('happy')">Happy Example</button>
+        <button onclick="setGraph('messy')">Messy Example</button>
+        <button onclick="setGraph('asn')">ASN Polling</button>
+        <button onclick="setGraph('amendment')">Amendment</button>
+        <button onclick="fitGraph()">Fit</button>
+        <div class="legend">
+          <span><i class="dot" style="background:var(--edge-layer)"></i>Edge</span>
+          <span><i class="dot" style="background:var(--queue)"></i>Queue</span>
+          <span><i class="dot" style="background:var(--core)"></i>Core</span>
+          <span><i class="dot" style="background:var(--plugin)"></i>Plugin</span>
+          <span><i class="dot" style="background:var(--store)"></i>Store</span>
+          <span><i class="dot" style="background:var(--ops)"></i>Ops</span>
+        </div>
+      </div>
+      <section class="graph-card">
+        <div id="cy"></div>
+      </section>
+
+      <div class="tabs">
+        <div class="tab active" data-tab="summary" onclick="showTab('summary')">Summary</div>
+        <div class="tab" data-tab="states" onclick="showTab('states')">States</div>
+        <div class="tab" data-tab="rules" onclick="showTab('rules')">Rules</div>
+        <div class="tab" data-tab="scale" onclick="showTab('scale')">Scale</div>
+      </div>
+
+      <section id="summary" class="panel">
+        <h2>Architecture Summary</h2>
+        <div class="cards">
+          <div class="card">
+            <h3>Stable Core</h3>
+            <p>Workflow, state, audit, retry, idempotency, validation, event history.</p>
+          </div>
+          <div class="card">
+            <h3>Partner Plugins</h3>
+            <p>Blinkit plugin owns PDF/API contract parsing and outbound payload building.</p>
+          </div>
+          <div class="card">
+            <h3>Action Plugins</h3>
+            <p>Everything after canonical document creation is workflow-owned. Validation, ERP, sheet sync, PO ack, ASN creation, ASN sync, amendment, notification are workflow action nodes.</p>
+          </div>
+          <div class="card">
+            <h3>Scale Model</h3>
+            <p>Many POs in parallel, same PO serialized by aggregate key and Postgres lock.</p>
+          </div>
+        </div>
+        <h3>Use The Example Diagrams</h3>
+        <p><code>Happy Example</code> shows one Blinkit PO flowing through all four state layers: raw event, PO document, workflow run, and action attempts. <code>Messy Example</code> shows duplicate events, changed PO payloads, validation failures, retryable plugin failures, DLQ/manual review, and ASN errors.</p>
+      </section>
+
+      <section id="states" class="panel hidden">
+        <h2>State Lifecycles</h2>
+        <p>State is split by ownership. PO document state stays generic; validation, approvals, ERP, sheet sync, ack, ASN, amendment, and notification live in workflow node/action state.</p>
+        <h3>Raw Webhook Event</h3>
+        <div class="flow-strip">
+          <div class="step"><strong>received</strong><small>webhook accepted</small></div>
+          <div class="step"><strong>stored</strong><small>raw payload saved</small></div>
+          <div class="step"><strong>dedupe_checked</strong><small>duplicate or new</small></div>
+          <div class="step"><strong>queued</strong><small>ingestion job</small></div>
+          <div class="step"><strong>processing</strong><small>worker handling</small></div>
+          <div class="step"><strong>processed</strong><small>event accepted</small></div>
+          <div class="step"><strong>duplicate/failed</strong><small>terminal alternate</small></div>
+        </div>
+        <h3>Canonical Document</h3>
+        <div class="flow-strip">
+          <div class="step"><strong>created</strong><small>canonical version exists</small></div>
+          <div class="step"><strong>in_workflow</strong><small>workflow run owns progress</small></div>
+          <div class="step"><strong>waiting</strong><small>dependency, approval, or retry</small></div>
+          <div class="step"><strong>completed</strong><small>configured workflow done</small></div>
+          <div class="step"><strong>blocked</strong><small>manual review needed</small></div>
+          <div class="step"><strong>failed</strong><small>terminal workflow failure</small></div>
+          <div class="step"><strong>cancelled</strong><small>explicit stop</small></div>
+        </div>
+        <h3>Workflow Run</h3>
+        <div class="flow-strip">
+          <div class="step"><strong>pending</strong><small>published DAG frozen</small></div>
+          <div class="step"><strong>running</strong><small>nodes executing</small></div>
+          <div class="step"><strong>waiting</strong><small>approval/retry/dependency</small></div>
+          <div class="step"><strong>completed</strong><small>required steps done</small></div>
+          <div class="step"><strong>blocked</strong><small>manual review</small></div>
+          <div class="step"><strong>failed</strong><small>terminal required failure</small></div>
+          <div class="step"><strong>cancelled</strong><small>ops/system stop</small></div>
+        </div>
+        <h3>Workflow Node Run</h3>
+        <div class="flow-strip">
+          <div class="step"><strong>pending</strong><small>node not ready</small></div>
+          <div class="step"><strong>ready</strong><small>dependencies satisfied</small></div>
+          <div class="step"><strong>waiting_for_approval</strong><small>approval task open</small></div>
+          <div class="step"><strong>running</strong><small>plugin executing</small></div>
+          <div class="step"><strong>success</strong><small>follow success edge</small></div>
+          <div class="step"><strong>rejected/failed</strong><small>follow error edge</small></div>
+          <div class="step"><strong>skipped/cancelled</strong><small>conditional or stopped</small></div>
+        </div>
+        <h3>Action Attempt</h3>
+        <div class="flow-strip">
+          <div class="step"><strong>pending</strong><small>attempt created</small></div>
+          <div class="step"><strong>running</strong><small>plugin call active</small></div>
+          <div class="step"><strong>success</strong><small>normalized success</small></div>
+          <div class="step"><strong>partial_success</strong><small>item-level issues</small></div>
+          <div class="step"><strong>rejected</strong><small>business rejection</small></div>
+          <div class="step"><strong>retry_scheduled</strong><small>retryable failure</small></div>
+          <div class="step"><strong>dead_lettered</strong><small>max attempts hit</small></div>
+        </div>
+        <h3>Approval Task</h3>
+        <div class="flow-strip">
+          <div class="step"><strong>pending</strong><small>user decision needed</small></div>
+          <div class="step"><strong>approved</strong><small>node may run</small></div>
+          <div class="step"><strong>rejected</strong><small>node rejected</small></div>
+          <div class="step"><strong>expired</strong><small>SLA missed</small></div>
+          <div class="step"><strong>cancelled</strong><small>workflow stopped</small></div>
+        </div>
+        <h3>ASN Job / ASN Document</h3>
+        <div class="flow-strip">
+          <div class="step"><strong>waiting_for_asn</strong><small>poll job scheduled</small></div>
+          <div class="step"><strong>polling_source_plugin</strong><small>ERP/API/file/UI source</small></div>
+          <div class="step"><strong>asn_data_incomplete</strong><small>reschedule or review</small></div>
+          <div class="step"><strong>asn_ready</strong><small>canonical ASN created</small></div>
+          <div class="step"><strong>workflow/action</strong><small>validation + ASN sync nodes</small></div>
+          <div class="step"><strong>accepted</strong><small>full success</small></div>
+          <div class="step"><strong>partial/rejected</strong><small>item-level errors</small></div>
+        </div>
+      </section>
+
+      <section id="rules" class="panel hidden">
+        <h2>Workflow Rules, Inheritance, Approval</h2>
+        <table>
+          <tr><th>Layer</th><th>Purpose</th><th>Example</th></tr>
+          <tr><td>Workflow DAG</td><td>Executable nodes and allowed edges.</td><td><code>validate_po -> erp_punch -> blinkit_ack</code>.</td></tr>
+          <tr><td>Validation Action</td><td>Ruleset runs as workflow action plugin.</td><td><code>plugin = validation.ruleset_engine</code>.</td></tr>
+          <tr><td>Ruleset Inheritance</td><td>Resolve global/platform/vendor/seller rules.</td><td>Seller can add SKU mapping rule if policy allows.</td></tr>
+          <tr><td>Approval Gate</td><td>Every action can wait for manual approval.</td><td>ERP punch approval enabled; sheet sync disabled.</td></tr>
+          <tr><td>Edge Policy</td><td>Backend validates drag/drop graph before publish.</td><td>ASN sync cannot run before PO ack.</td></tr>
+        </table>
+        <pre>workflow: blinkit_po_seller_123_v4
+nodes:
+  - validate_po: action plugin validation.ruleset_engine
+  - erp_punch: action plugin erp.punch_po, approval = effective
+  - blinkit_ack: action plugin blinkit.po_ack
+
+edges:
+  - validate_po success -> erp_punch
+  - validate_po rejected -> manual_review
+  - erp_punch success -> blinkit_ack
+
+resolved config:
+  ruleset = global -> platform -> vendor -> seller
+  approval = global -> platform -> vendor -> seller
+  workflow = seller override or inherited template</pre>
+      </section>
+
+      <section id="scale" class="panel hidden">
+        <h2>Scale + Duplicate Strategy</h2>
+        <table>
+          <tr><th>Problem</th><th>Design</th></tr>
+          <tr><td>High event volume</td><td>Stateless API and KEDA-scaled workers.</td></tr>
+          <tr><td>Same PO duplicate</td><td>Unique idempotency key, mark duplicate, no new actions.</td></tr>
+          <tr><td>Same PO changed</td><td>Before any required side effect: new version. After required side effect/workflow completion: manual review/amendment.</td></tr>
+          <tr><td>Concurrent same PO</td><td>Aggregate key + Postgres lock/optimistic version.</td></tr>
+          <tr><td>Slow ERP/API</td><td>Action queues, retry scheduler, DLQ, circuit breaker.</td></tr>
+        </table>
+      </section>
+    </main>
+
+    <aside class="side">
+      <h2 id="detail-title">Click a node</h2>
+      <p id="detail-text">Select any component in the graph to see responsibility, inputs, outputs, and failure behavior.</p>
+      <h3>Selected Details</h3>
+      <div id="detail-list">
+        <p>Graph is interactive: drag, zoom, click nodes. Use top buttons to switch diagrams.</p>
+      </div>
+    </aside>
+  </div>
+
+  <script>
+    const details = {
+      api: ["Receives Blinkit webhook/API calls.", "Does minimal work: auth, raw write, idempotency, enqueue.", "Stateless and horizontally scalable."],
+      auth: ["Checks Api-Key from secret/config.", "Checks platform account and IP allowlist.", "Resolves tenant, seller, platform account."],
+      raw: ["Writes raw body to object store.", "Creates raw_events row.", "Assigns trace_id and body_hash."],
+      idem: ["Unique key prevents duplicate side effects.", "Exact duplicate: mark duplicate and return existing status.", "Changed same PO: route to document worker for version decision."],
+      ingest: ["RabbitMQ ingestion queue.", "Message carries aggregate_key.", "Postgres lock still protects ordering."],
+      partner: ["Loads Blinkit plugin for PO parse/map.", "Future platforms add new plugins.", "Core sees canonical documents only."],
+      canonical: ["Creates PurchaseOrder, ASN, Ack, Amendment documents.", "Stores document_versions.", "Partner extras stay in metadata."],
+      validate: ["Validation is a workflow action plugin.", "Runs effective ruleset from global/platform/vendor/seller inheritance.", "Returns findings only; workflow follows success/rejected edge."],
+      workflow: ["Only owner of document state.", "Creates state transitions, domain events, outbox rows.", "Decides completion, retry, DLQ, manual review."],
+      outbox: ["Transactional outbox rows are written with state changes.", "Dispatcher publishes jobs to RabbitMQ.", "Prevents DB/job dual-write bugs."],
+      erp: ["ERP action plugin has two optional roles.", "punch_po and get_asn_details.", "Seller may instead choose sheet sync or another destination plugin."],
+      sheet: ["Sheet sync is a destination action plugin.", "Can replace ERP punch for sellers that do not want ERP integration.", "Workflow config decides required destination steps."],
+      ack: ["Sends PO acknowledgement to partnersbiz.", "Runs after configured prerequisite steps, not necessarily ERP.", "Retries independently from other actions."],
+      asn: ["Sends canonical ASN to partnersbiz.", "Handles accepted, partial, rejected.", "Stores item-level errors."],
+      amend: ["User-created amendment sent to partnersbiz.", "Separate document linked to PO.", "Original PO not overwritten."],
+      poller: ["Polls configured ASN source plugin.", "Default source is ERP get_asn_details.", "Can run days later and persists next_poll_at in Postgres."],
+      pg: ["Operational state store.", "Documents, transitions, actions, idempotency, ASN jobs.", "Provides locks/version checks."],
+      obj: ["Raw payloads and external request/response bodies.", "Immutable audit evidence.", "Referenced by DB rows."],
+      ops: ["Search, retry, replay, trigger ASN poll, resend ack/ASN, create amendment.", "State override restricted and audited."],
+      trace: ["OpenTelemetry traces, logs, metrics.", "Everything shares trace_id.", "Supports full PO journey debugging."],
+      poDoc: ["Business PO document state only.", "No ERP-specific states here.", "Examples: created, ready, in_workflow, waiting, completed, blocked, failed."],
+      rawReceived: ["Webhook was accepted.", "Raw body is persisted before parsing.", "A trace_id is assigned immediately."],
+      rawDuplicate: ["Exact duplicate by idempotency/body hash.", "No workflow is started.", "No action plugin is triggered."],
+      validationOk: ["Validation action node succeeded.", "Stores rule version, effective config source, and findings.", "Workflow can continue to configured destination actions."],
+      validationBad: ["Validation plugin returned rejected/permanent failure.", "PO document becomes blocked or failed based on workflow config.", "Ops/user correction or amendment may be required."],
+      destinationOk: ["Configured destination action succeeded.", "Could be ERP punch, sheet sync, both, or another seller-specific plugin.", "PO state remains generic."],
+      destinationRetry: ["Action plugin failed with retryable error.", "Attempt moves to retry_scheduled.", "Workflow waits without re-running previous successful actions."],
+      ackOk: ["Blinkit PO acknowledgement action succeeded.", "Independent plugin attempt.", "Uses idempotency key and stores request/response."],
+      asnReady: ["ASN source plugin returned enough data.", "Canonical ASN can be validated and sent.", "Source is ERP by default but pluggable."],
+      manualReview: ["Human review queue.", "Used when automatic mutation is unsafe.", "Every decision needs audit reason."],
+      changedBefore: ["Same PO number, different payload, no required side effect has started.", "Create new PO version.", "Re-run validation/workflow from safe point."],
+      changedAfter: ["Same PO number, different payload after required side effects.", "Do not silently mutate existing PO.", "Block/review or create amendment/correction workflow."]
+    };
+
+    const commonStyle = [
+      {
+        selector: "node",
+        style: {
+          "shape": "round-rectangle",
+          "background-color": "#18212c",
+          "border-width": 2,
+          "border-color": "#617188",
+          "label": "data(label)",
+          "color": "#edf3f8",
+          "text-wrap": "wrap",
+          "text-max-width": "150px",
+          "font-size": 14,
+          "font-weight": 650,
+          "text-valign": "center",
+          "text-halign": "center",
+          "width": "label",
+          "height": "label",
+          "padding": "18px"
+        }
+      },
+      { selector: ".edgeLayer", style: { "background-color": "#18202a", "border-color": "#8491a4" } },
+      { selector: ".queue", style: { "background-color": "#241b10", "border-color": "#d99436" } },
+      { selector: ".core", style: { "background-color": "#102033", "border-color": "#35a0e0" } },
+      { selector: ".plugin", style: { "background-color": "#211a35", "border-color": "#a78bfa" } },
+      { selector: ".store", style: { "background-color": "#11261d", "border-color": "#40c78a" } },
+      { selector: ".ops", style: { "background-color": "#2c2510", "border-color": "#f3c950" } },
+      { selector: ".risk", style: { "background-color": "#2a1517", "border-color": "#ef5f5f" } },
+      {
+        selector: "edge",
+        style: {
+          "width": 2,
+          "line-color": "#718197",
+          "target-arrow-color": "#718197",
+          "target-arrow-shape": "triangle",
+          "curve-style": "bezier",
+          "label": "data(label)",
+          "font-size": 11,
+          "color": "#aeb8c5",
+          "text-rotation": "autorotate",
+          "text-margin-y": -8
+        }
+      },
+      { selector: ":selected", style: { "border-width": 4, "border-color": "#ffffff" } }
+    ];
+
+    const graphs = {
+      system: [
+        { data: { id: "api", label: "API Gateway\nWebhook Router" }, classes: "edgeLayer" },
+        { data: { id: "auth", label: "Auth Guard\nApi-Key + IP" }, classes: "edgeLayer" },
+        { data: { id: "raw", label: "Raw Event Writer" }, classes: "edgeLayer" },
+        { data: { id: "idem", label: "Idempotency\nService" }, classes: "core" },
+        { data: { id: "ingest", label: "RabbitMQ\nedi.ingestion" }, classes: "queue" },
+        { data: { id: "partner", label: "Partner Plugin\nRuntime" }, classes: "plugin" },
+        { data: { id: "canonical", label: "Canonical\nDocument Service" }, classes: "core" },
+        { data: { id: "config", label: "Config Resolver\nInherited Versions" }, classes: "core" },
+        { data: { id: "approval", label: "Approval\nEngine" }, classes: "core" },
+        { data: { id: "validate", label: "Validation Action\nruleset_engine" }, classes: "plugin" },
+        { data: { id: "workflow", label: "Workflow\nEngine" }, classes: "core" },
+        { data: { id: "outbox", label: "Transactional\nOutbox" }, classes: "core" },
+        { data: { id: "erp", label: "ERP Plugin\noptional destination + ASN source" }, classes: "plugin" },
+        { data: { id: "sheet", label: "Sheet Sync\nPlugin" }, classes: "plugin" },
+        { data: { id: "ack", label: "PO Ack\nAction" }, classes: "plugin" },
+        { data: { id: "asn", label: "ASN Sync\nAction" }, classes: "plugin" },
+        { data: { id: "amend", label: "Amendment\nAction" }, classes: "plugin" },
+        { data: { id: "poller", label: "ASN Poller" }, classes: "core" },
+        { data: { id: "pg", label: "Postgres\nState + Audit" }, classes: "store" },
+        { data: { id: "obj", label: "Object Store\nRaw Payloads" }, classes: "store" },
+        { data: { id: "trace", label: "Trace + Metrics" }, classes: "store" },
+        { data: { id: "ops", label: "Ops UI/API" }, classes: "ops" },
+        { data: { source: "api", target: "auth" } },
+        { data: { source: "auth", target: "raw" } },
+        { data: { source: "raw", target: "idem" } },
+        { data: { source: "raw", target: "obj" } },
+        { data: { source: "idem", target: "ingest" } },
+        { data: { source: "ingest", target: "partner" } },
+        { data: { source: "partner", target: "canonical" } },
+        { data: { source: "canonical", target: "workflow" } },
+        { data: { source: "config", target: "workflow" } },
+        { data: { source: "workflow", target: "approval" } },
+        { data: { source: "workflow", target: "outbox" } },
+        { data: { source: "outbox", target: "validate" } },
+        { data: { source: "outbox", target: "erp" } },
+        { data: { source: "outbox", target: "sheet" } },
+        { data: { source: "outbox", target: "ack" } },
+        { data: { source: "outbox", target: "asn" } },
+        { data: { source: "outbox", target: "amend" } },
+        { data: { source: "workflow", target: "poller" } },
+        { data: { source: "poller", target: "erp" } },
+        { data: { source: "workflow", target: "pg" } },
+        { data: { source: "erp", target: "workflow" } },
+        { data: { source: "ack", target: "workflow" } },
+        { data: { source: "asn", target: "workflow" } },
+        { data: { source: "amend", target: "workflow" } },
+        { data: { source: "workflow", target: "trace" } },
+        { data: { source: "ops", target: "workflow" } }
+      ],
+      po: [
+        { data: { id: "api", label: "Blinkit PO\nWebhook" }, classes: "edgeLayer" },
+        { data: { id: "raw", label: "Store Raw\nPayload" }, classes: "store" },
+        { data: { id: "idem", label: "Idempotency\nCheck" }, classes: "core" },
+        { data: { id: "partner", label: "Blinkit Plugin\nParse + Map" }, classes: "plugin" },
+        { data: { id: "canonical", label: "Canonical\nPurchaseOrder" }, classes: "core" },
+        { data: { id: "workflow", label: "Workflow Run\nConfigured Steps" }, classes: "core" },
+        { data: { id: "validationAction", label: "Validation Action\nruleset_engine" }, classes: "plugin" },
+        { data: { id: "destination", label: "Destination Plugin\nERP or Sheet" }, classes: "plugin" },
+        { data: { id: "ack", label: "Send PO Ack" }, classes: "plugin" },
+        { data: { id: "poller", label: "Create ASN\nPoll Job" }, classes: "core" },
+        { data: { id: "completed", label: "Workflow\nCompleted" }, classes: "store" },
+        { data: { id: "dupe", label: "Exact Duplicate\nNo Actions" }, classes: "risk" },
+        { data: { id: "changed", label: "Changed Same PO\nVersion/Review" }, classes: "risk" },
+        { data: { source: "api", target: "raw" } },
+        { data: { source: "raw", target: "idem" } },
+        { data: { source: "idem", target: "dupe", label: "same hash" } },
+        { data: { source: "idem", target: "changed", label: "same PO diff hash" } },
+        { data: { source: "idem", target: "partner", label: "new" } },
+        { data: { source: "partner", target: "canonical" } },
+        { data: { source: "canonical", target: "workflow" } },
+        { data: { source: "workflow", target: "validationAction" } },
+        { data: { source: "validationAction", target: "destination" } },
+        { data: { source: "destination", target: "ack" } },
+        { data: { source: "ack", target: "completed" } },
+        { data: { source: "completed", target: "poller" } }
+      ],
+      happy: [
+        { data: { id: "blinkit", label: "Blinkit sends\nPO-1001" }, classes: "edgeLayer" },
+        { data: { id: "rawReceived", label: "raw_event\nreceived" }, classes: "store" },
+        { data: { id: "rawStored", label: "raw_event\nstored" }, classes: "store" },
+        { data: { id: "dedupe", label: "dedupe_checked\nnew event" }, classes: "core" },
+        { data: { id: "queued", label: "raw_event\nqueued" }, classes: "queue" },
+        { data: { id: "processing", label: "raw_event\nprocessing" }, classes: "core" },
+        { data: { id: "parse", label: "Blinkit Plugin\nparse + map" }, classes: "plugin" },
+        { data: { id: "poDoc", label: "PO Document\ncreated v1" }, classes: "core" },
+        { data: { id: "workflowRun", label: "Workflow Run\nrunning" }, classes: "core" },
+        { data: { id: "validationOk", label: "Action Attempt\nvalidation success" }, classes: "plugin" },
+        { data: { id: "destinationOk", label: "Action Attempt\ndestination success\nERP or Sheet" }, classes: "plugin" },
+        { data: { id: "ackOk", label: "Action Attempt\nBlinkit ack success" }, classes: "plugin" },
+        { data: { id: "workflowDone", label: "Workflow Run\ncompleted" }, classes: "store" },
+        { data: { id: "poComplete", label: "PO Document\ncompleted" }, classes: "store" },
+        { data: { id: "rawProcessed", label: "raw_event\nprocessed" }, classes: "store" },
+        { data: { id: "asnJob", label: "ASN Job\nnext_poll_at" }, classes: "queue" },
+        { data: { id: "asnNotReady", label: "ASN source\nnot ready yet" }, classes: "queue" },
+        { data: { id: "asnReady", label: "ASN source\nreturns details" }, classes: "plugin" },
+        { data: { id: "asnDoc", label: "Canonical ASN\nready" }, classes: "core" },
+        { data: { id: "asnValid", label: "ASN validation\nsuccess" }, classes: "plugin" },
+        { data: { id: "asnSent", label: "ASN sync\naccepted" }, classes: "store" },
+        { data: { source: "blinkit", target: "rawReceived", label: "webhook" } },
+        { data: { source: "rawReceived", target: "rawStored", label: "persist body" } },
+        { data: { source: "rawStored", target: "dedupe", label: "hash + key" } },
+        { data: { source: "dedupe", target: "queued", label: "new" } },
+        { data: { source: "queued", target: "processing", label: "worker lock PO-1001" } },
+        { data: { source: "processing", target: "parse", label: "partner plugin" } },
+        { data: { source: "parse", target: "poDoc", label: "canonical" } },
+        { data: { source: "poDoc", target: "workflowRun", label: "seller config" } },
+        { data: { source: "workflowRun", target: "validationOk", label: "ruleset v1" } },
+        { data: { source: "validationOk", target: "destinationOk", label: "configured step" } },
+        { data: { source: "destinationOk", target: "ackOk", label: "depends_on" } },
+        { data: { source: "ackOk", target: "workflowDone", label: "required actions done" } },
+        { data: { source: "workflowDone", target: "poComplete" } },
+        { data: { source: "workflowDone", target: "rawProcessed" } },
+        { data: { source: "workflowDone", target: "asnJob", label: "if configured" } },
+        { data: { source: "asnJob", target: "asnNotReady", label: "poll day 1" } },
+        { data: { source: "asnNotReady", target: "asnJob", label: "reschedule" } },
+        { data: { source: "asnJob", target: "asnReady", label: "poll day 3" } },
+        { data: { source: "asnReady", target: "asnDoc" } },
+        { data: { source: "asnDoc", target: "asnValid" } },
+        { data: { source: "asnValid", target: "asnSent" } }
+      ],
+      messy: [
+        { data: { id: "eventA", label: "Blinkit PO-1001\nWebhook A" }, classes: "edgeLayer" },
+        { data: { id: "rawA", label: "raw_event A\nstored + traced" }, classes: "store" },
+        { data: { id: "lock", label: "Aggregate Lock\nblinkit:seller:PO-1001" }, classes: "core" },
+        { data: { id: "eventDup", label: "Webhook B\nexact duplicate" }, classes: "edgeLayer" },
+        { data: { id: "rawDuplicate", label: "raw_event B\nduplicate" }, classes: "risk" },
+        { data: { id: "eventBad", label: "Webhook C\nbad payload" }, classes: "edgeLayer" },
+        { data: { id: "parseFailed", label: "parse_failed\nDLQ/replay" }, classes: "risk" },
+        { data: { id: "eventChangedBefore", label: "Webhook D\nsame PO changed" }, classes: "edgeLayer" },
+        { data: { id: "changedBefore", label: "No required action\nstarted yet" }, classes: "queue" },
+        { data: { id: "version2", label: "PO Document\nversion 2" }, classes: "core" },
+        { data: { id: "workflow", label: "Workflow Run\nrunning" }, classes: "core" },
+        { data: { id: "validationBad", label: "Validation Action\nrejected" }, classes: "risk" },
+        { data: { id: "blocked", label: "PO Document\nblocked" }, classes: "risk" },
+        { data: { id: "fixRules", label: "User/Ops fixes\nmapping or data" }, classes: "ops" },
+        { data: { id: "validationOk", label: "Validation Action\nsuccess" }, classes: "plugin" },
+        { data: { id: "destinationRetry", label: "Destination Plugin\nretryable failure" }, classes: "risk" },
+        { data: { id: "retry", label: "retry_scheduled\nbackoff" }, classes: "queue" },
+        { data: { id: "destinationOk", label: "Destination Plugin\nsuccess" }, classes: "plugin" },
+        { data: { id: "eventChangedAfter", label: "Webhook E\nsame PO changed" }, classes: "edgeLayer" },
+        { data: { id: "changedAfter", label: "Required side effect\nalready done" }, classes: "risk" },
+        { data: { id: "manualReview", label: "Manual Review\nor Amendment" }, classes: "ops" },
+        { data: { id: "ackTimeout", label: "Blinkit Ack\ntimeout/500" }, classes: "risk" },
+        { data: { id: "ackRetry", label: "Ack retry\nsame attempt context" }, classes: "queue" },
+        { data: { id: "ackOk", label: "Ack success" }, classes: "plugin" },
+        { data: { id: "workflowDone", label: "Workflow\ncompleted" }, classes: "store" },
+        { data: { id: "asnJob", label: "ASN Job\nscheduled" }, classes: "queue" },
+        { data: { id: "asnMissing", label: "ASN Source\nmissing invoice/item" }, classes: "risk" },
+        { data: { id: "asnOps", label: "Ops/user fixes\nASN data" }, classes: "ops" },
+        { data: { id: "asnReject", label: "ASN Sync\npartial/rejected" }, classes: "risk" },
+        { data: { id: "asnAccepted", label: "ASN Sync\naccepted" }, classes: "store" },
+        { data: { source: "eventA", target: "rawA", label: "store first" } },
+        { data: { source: "rawA", target: "lock", label: "one PO writer" } },
+        { data: { source: "eventDup", target: "rawDuplicate", label: "same hash" } },
+        { data: { source: "rawDuplicate", target: "lock", label: "no actions", classes: "risk" } },
+        { data: { source: "eventBad", target: "parseFailed", label: "cannot parse" } },
+        { data: { source: "eventChangedBefore", target: "changedBefore", label: "diff hash" } },
+        { data: { source: "changedBefore", target: "version2", label: "safe version" } },
+        { data: { source: "lock", target: "version2", label: "canonical v1/v2" } },
+        { data: { source: "version2", target: "workflow" } },
+        { data: { source: "workflow", target: "validationBad", label: "rule fails" } },
+        { data: { source: "validationBad", target: "blocked", label: "required" } },
+        { data: { source: "blocked", target: "fixRules", label: "audit reason" } },
+        { data: { source: "fixRules", target: "validationOk", label: "re-run from step" } },
+        { data: { source: "validationOk", target: "destinationRetry", label: "ERP/sheet/API issue" } },
+        { data: { source: "destinationRetry", target: "retry", label: "not terminal" } },
+        { data: { source: "retry", target: "destinationOk", label: "retry succeeds" } },
+        { data: { source: "eventChangedAfter", target: "changedAfter", label: "diff hash late" } },
+        { data: { source: "destinationOk", target: "changedAfter", label: "side effect exists" } },
+        { data: { source: "changedAfter", target: "manualReview", label: "no silent mutation" } },
+        { data: { source: "destinationOk", target: "ackTimeout", label: "next action" } },
+        { data: { source: "ackTimeout", target: "ackRetry" } },
+        { data: { source: "ackRetry", target: "ackOk" } },
+        { data: { source: "ackOk", target: "workflowDone" } },
+        { data: { source: "workflowDone", target: "asnJob" } },
+        { data: { source: "asnJob", target: "asnMissing", label: "poll source incomplete" } },
+        { data: { source: "asnMissing", target: "asnOps" } },
+        { data: { source: "asnOps", target: "asnJob", label: "poll again" } },
+        { data: { source: "asnJob", target: "asnReject", label: "platform item error" } },
+        { data: { source: "asnReject", target: "asnOps", label: "fix + resend" } },
+        { data: { source: "asnJob", target: "asnAccepted", label: "accepted" } }
+      ],
+      asn: [
+        { data: { id: "closed", label: "Workflow\nCompleted" }, classes: "store" },
+        { data: { id: "poller", label: "ASN Job\nnext_poll_at" }, classes: "core" },
+        { data: { id: "erp", label: "ASN Source Plugin\nERP by default" }, classes: "plugin" },
+        { data: { id: "notready", label: "Not Ready\nReschedule" }, classes: "queue" },
+        { data: { id: "incomplete", label: "Data Incomplete\nOps Review" }, classes: "risk" },
+        { data: { id: "canonical", label: "Canonical ASN" }, classes: "core" },
+        { data: { id: "validate", label: "Validation Action\nruleset_engine" }, classes: "plugin" },
+        { data: { id: "send", label: "ASN Sync Action\npartnersbiz" }, classes: "plugin" },
+        { data: { id: "accepted", label: "Accepted" }, classes: "store" },
+        { data: { id: "partial", label: "Partial\nItem Errors" }, classes: "risk" },
+        { data: { id: "rejected", label: "Rejected\nDLQ/Review" }, classes: "risk" },
+        { data: { source: "closed", target: "poller" } },
+        { data: { source: "poller", target: "erp" } },
+        { data: { source: "erp", target: "notready" } },
+        { data: { source: "notready", target: "poller" } },
+        { data: { source: "erp", target: "incomplete" } },
+        { data: { source: "erp", target: "canonical" } },
+        { data: { source: "canonical", target: "validate" } },
+        { data: { source: "validate", target: "send" } },
+        { data: { source: "send", target: "accepted" } },
+        { data: { source: "send", target: "partial" } },
+        { data: { source: "send", target: "rejected" } }
+      ],
+      amendment: [
+        { data: { id: "ops", label: "User in UI" }, classes: "ops" },
+        { data: { id: "canonical", label: "Canonical\nPOAmendment" }, classes: "core" },
+        { data: { id: "validate", label: "Validation Action\nitem/upc/mrp/uom" }, classes: "plugin" },
+        { data: { id: "amend", label: "Blinkit Amendment\nAction" }, classes: "plugin" },
+        { data: { id: "result", label: "partnersbiz\nResponse" }, classes: "store" },
+        { data: { id: "link", label: "Link to\nAffected POs" }, classes: "store" },
+        { data: { id: "partial", label: "Partial/Rejected\nReview" }, classes: "risk" },
+        { data: { source: "ops", target: "canonical" } },
+        { data: { source: "canonical", target: "validate" } },
+        { data: { source: "validate", target: "amend" } },
+        { data: { source: "amend", target: "result" } },
+        { data: { source: "result", target: "link" } },
+        { data: { source: "result", target: "partial" } }
+      ]
+    };
+
+    let cy;
+    function setGraph(name) {
+      if (cy) cy.destroy();
+      cy = cytoscape({
+        container: document.getElementById("cy"),
+        elements: graphs[name],
+        style: commonStyle,
+        layout: { name: "dagre", rankDir: name === "system" ? "TB" : "LR", nodeSep: 42, rankSep: 70 },
+        wheelSensitivity: 0.18,
+        minZoom: 0.25,
+        maxZoom: 2.2
+      });
+      cy.on("tap", "node", evt => showDetails(evt.target.id()));
+      cy.ready(() => fitGraph());
+    }
+    function fitGraph() {
+      if (cy) cy.fit(undefined, 34);
+    }
+    function showDetails(id) {
+      const title = document.getElementById("detail-title");
+      const text = document.getElementById("detail-text");
+      const list = document.getElementById("detail-list");
+      const node = cy.$id(id);
+      title.textContent = node.data("label").replace(/\n/g, " ");
+      text.textContent = "Component details";
+      const rows = details[id] || ["No extra detail for this node yet."];
+      list.innerHTML = "<ul>" + rows.map(x => `<li>${x}</li>`).join("") + "</ul>";
+    }
+    function showTab(id) {
+      document.querySelectorAll(".tab").forEach(t => t.classList.toggle("active", t.dataset.tab === id));
+      ["summary", "states", "rules", "scale"].forEach(panel => {
+        document.getElementById(panel).classList.toggle("hidden", panel !== id);
+      });
+    }
+    window.setGraph = setGraph;
+    window.fitGraph = fitGraph;
+    window.showTab = showTab;
+    setGraph("system");
+  </script>
+</body>
+</html>
+        { data: { source: "validate", target: "workflow" } },

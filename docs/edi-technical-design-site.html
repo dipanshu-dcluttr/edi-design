@@ -1,0 +1,2301 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EDI Integration Technical Design</title>
+<script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+<script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+<script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+<style>
+:root{color-scheme:light;--paper:#f7f5ef;--paper-2:#ebe7dc;--ink:#151719;--muted:#65707a;--line:#d5cec0;--panel:#fffdf8;--panel-strong:#f1eee6;--charcoal:#20252a;--teal:#157f7a;--amber:#b56d12;--blue:#315f9f;--violet:#70549b;--code:#171c20;--shadow:0 18px 48px rgba(31,28,22,.13);--radius:8px}
+*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;background:linear-gradient(90deg,rgba(21,127,122,.08) 1px,transparent 1px),linear-gradient(180deg,rgba(21,127,122,.06) 1px,transparent 1px),var(--paper);background-size:44px 44px;color:var(--ink);font:16px/1.55 Georgia,"Times New Roman",serif}body:before{content:"";position:fixed;inset:0;pointer-events:none;background:linear-gradient(115deg,rgba(255,253,248,.84),rgba(255,253,248,.34) 44%,rgba(235,231,220,.82));z-index:-1}
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);min-height:100vh}
+aside{position:sticky;top:0;height:100vh;overflow:auto;border-right:2px solid var(--charcoal);background:rgba(247,245,239,.94);backdrop-filter:blur(14px);padding:22px}
+.brand{display:inline-block;border:2px solid var(--charcoal);background:var(--teal);color:#fffdf8;box-shadow:4px 4px 0 var(--charcoal);padding:10px 12px;font:900 12px/1 ui-sans-serif,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.12em}.meta{margin:14px 0 14px;color:var(--muted);font:800 12px/1.4 ui-sans-serif,system-ui,sans-serif}.doc-switcher{display:grid;grid-template-columns:1fr;gap:8px;margin:0 0 18px}.doc-switcher a{border:1px solid var(--line);background:var(--panel);color:var(--charcoal);text-decoration:none;border-radius:999px;padding:9px 11px;font:900 12px/1 ui-sans-serif,system-ui,sans-serif}.doc-switcher a.active{background:var(--charcoal);color:#fffdf8;border-color:var(--charcoal)}
+nav{display:grid;gap:3px}nav a{color:var(--muted);text-decoration:none;border-left:3px solid transparent;padding:7px 9px;border-radius:6px;font:800 13px/1.25 ui-sans-serif,system-ui,sans-serif}nav a:hover{color:var(--ink);background:var(--panel);border-left-color:var(--teal)}.lvl2{padding-left:18px}.lvl3{padding-left:30px;font-size:12px}
+main{padding:42px min(7vw,90px) 90px;max-width:1320px}article{max-width:1120px}
+h1{font:900 clamp(38px,5vw,68px)/.94 ui-sans-serif,system-ui,sans-serif;letter-spacing:0;margin:0 0 24px}h2{margin-top:56px;padding-top:20px;border-top:2px solid var(--charcoal);font:900 34px/.98 ui-sans-serif,system-ui,sans-serif;letter-spacing:0}h3{margin-top:34px;font:900 23px/1.1 ui-sans-serif,system-ui,sans-serif;color:var(--teal)}h4{margin-top:26px;font:900 17px/1.15 ui-sans-serif,system-ui,sans-serif;color:var(--amber)}
+p,li{color:#343b41}a{color:var(--teal)}code{background:var(--panel-strong);color:#123d3a;border:1px solid var(--line);border-radius:5px;padding:1px 5px}pre{background:var(--code);border:2px solid var(--charcoal);border-radius:var(--radius);padding:16px;overflow:auto;box-shadow:6px 6px 0 rgba(32,37,42,.1)}pre code{background:transparent;border:0;padding:0;color:#f5f1e8}
+table{width:100%;border-collapse:collapse;margin:18px 0;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);overflow:hidden;display:table;box-shadow:0 10px 24px rgba(31,28,22,.06)}th,td{text-align:left;vertical-align:top;border-bottom:1px solid var(--line);padding:11px 12px}th{color:#fffdf8;background:var(--charcoal);font:900 12px/1.2 ui-sans-serif,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.06em}td{color:#394148}
+.graph-card{margin:20px 0 30px;background:var(--panel);border:2px solid var(--charcoal);border-radius:var(--radius);padding:14px;box-shadow:8px 8px 0 rgba(21,127,122,.12)}
+.graph-title{font:900 12px/1 ui-sans-serif,system-ui,sans-serif;text-transform:uppercase;letter-spacing:.12em;color:var(--amber);margin:0 0 10px}.graph{height:620px;border-radius:var(--radius);background:#fffdf8;border:1px solid var(--line)}
+.source-note{display:flex;gap:10px;flex-wrap:wrap;margin:0 0 26px}.pill{border:1px solid var(--line);background:var(--panel);color:#3f474e;border-radius:999px;padding:8px 10px;font:900 12px/1 ui-sans-serif,system-ui,sans-serif}
+@media(max-width:980px){.layout{display:block}aside{position:relative;height:auto}.graph{height:520px}main{padding:26px 18px 70px}h1{font-size:38px}}
+</style>
+</head>
+<body>
+<div class="layout">
+<aside>
+<div class="brand">EDI Technical Design</div>
+<div class="meta">Generated from docs/edi-integration-technical-design.md<br>Lines: 3821 · SHA: ba07a0160fe3</div>
+<div class="doc-switcher"><a href="edi-layperson-system-explainer.html">Plain-English deck</a><a class="active" href="edi-technical-design-site.html">Tech docs</a><a href="edi-production-database-and-queue-schema-site.html">Database schema</a></div>
+<nav><a class="lvl1" href="#edi-integration-platform-technical-design">EDI Integration Platform Technical Design</a>
+<a class="lvl2" href="#1-purpose">1. Purpose</a>
+<a class="lvl2" href="#2-domain-terms">2. Domain Terms</a>
+<a class="lvl2" href="#3-design-principles">3. Design Principles</a>
+<a class="lvl2" href="#4-high-level-architecture">4. High-Level Architecture</a>
+<a class="lvl2" href="#5-technology-choices">5. Technology Choices</a>
+<a class="lvl2" href="#6-services">6. Services</a>
+<a class="lvl3" href="#6-1-ingress-api-service">6.1 Ingress API Service</a>
+<a class="lvl3" href="#6-2-document-worker">6.2 Document Worker</a>
+<a class="lvl3" href="#6-3-outbox-dispatcher">6.3 Outbox Dispatcher</a>
+<a class="lvl3" href="#6-4-action-workers">6.4 Action Workers</a>
+<a class="lvl3" href="#6-5-asn-poller">6.5 ASN Poller</a>
+<a class="lvl3" href="#6-6-ops-api-ui">6.6 Ops API/UI</a>
+<a class="lvl3" href="#6-7-config-admin-api">6.7 Config/Admin API</a>
+<a class="lvl3" href="#6-8-runtime-api-surface">6.8 Runtime API Surface</a>
+<a class="lvl3" href="#6-9-critical-worker-algorithms">6.9 Critical Worker Algorithms</a>
+<a class="lvl2" href="#7-canonical-documents">7. Canonical Documents</a>
+<a class="lvl3" href="#7-1-document-envelope">7.1 Document Envelope</a>
+<a class="lvl3" href="#7-2-purchaseorder">7.2 PurchaseOrder</a>
+<a class="lvl3" href="#7-3-asn">7.3 ASN</a>
+<a class="lvl3" href="#7-4-poacknowledgement">7.4 POAcknowledgement</a>
+<a class="lvl3" href="#7-5-poamendment">7.5 POAmendment</a>
+<a class="lvl2" href="#8-database-schema">8. Database Schema</a>
+<a class="lvl3" href="#8-1-important-constraints">8.1 Important Constraints</a>
+<a class="lvl3" href="#8-2-aggregate-key">8.2 Aggregate Key</a>
+<a class="lvl3" href="#8-3-blinkit-identity-mapping">8.3 Blinkit Identity Mapping</a>
+<a class="lvl3" href="#8-4-detailed-operational-schema">8.4 Detailed Operational Schema</a>
+<a class="lvl2" href="#9-state-management">9. State Management</a>
+<a class="lvl3" href="#9-1-raw-webhook-event-states">9.1 Raw Webhook/Event States</a>
+<a class="lvl3" href="#9-2-document-states">9.2 Document States</a>
+<a class="lvl3" href="#9-3-workflow-run-states">9.3 Workflow Run States</a>
+<a class="lvl3" href="#9-3-1-workflow-node-run-states">9.3.1 Workflow Node Run States</a>
+<a class="lvl3" href="#9-4-action-attempt-states">9.4 Action Attempt States</a>
+<a class="lvl3" href="#9-5-asn-tracking-job-asn-document-states">9.5 ASN Tracking Job / ASN Document States</a>
+<a class="lvl3" href="#9-6-state-ownership">9.6 State Ownership</a>
+<a class="lvl2" href="#10-ingestion-and-idempotency">10. Ingestion and Idempotency</a>
+<a class="lvl3" href="#10-1-exact-duplicate">10.1 Exact Duplicate</a>
+<a class="lvl3" href="#10-2-same-po-changed-payload">10.2 Same PO, Changed Payload</a>
+<a class="lvl3" href="#10-3-layered-idempotency-model">10.3 Layered Idempotency Model</a>
+<a class="lvl2" href="#11-workflow-configuration-rules-and-approval">11. Workflow Configuration, Rules, and Approval</a>
+<a class="lvl3" href="#11-1-workflow-is-the-orchestrator">11.1 Workflow Is The Orchestrator</a>
+<a class="lvl3" href="#11-1-1-po-workflow-and-asn-workflow-boundaries">11.1.1 PO Workflow and ASN Workflow Boundaries</a>
+<a class="lvl3" href="#11-2-workflow-definition-storage">11.2 Workflow Definition Storage</a>
+<a class="lvl3" href="#11-3-workflow-inheritance">11.3 Workflow Inheritance</a>
+<a class="lvl3" href="#11-4-edge-policy">11.4 Edge Policy</a>
+<a class="lvl3" href="#11-5-validation-as-action">11.5 Validation As Action</a>
+<a class="lvl3" href="#11-6-ruleset-inheritance-and-custom-rules">11.6 Ruleset Inheritance and Custom Rules</a>
+<a class="lvl3" href="#11-7-approval-as-workflow-action">11.7 Approval as Workflow Action</a>
+<a class="lvl3" href="#11-8-effective-config-snapshot">11.8 Effective Config Snapshot</a>
+<a class="lvl3" href="#11-9-config-resolution-algorithm">11.9 Config Resolution Algorithm</a>
+<a class="lvl3" href="#11-10-workflow-graph-validation-rules">11.10 Workflow Graph Validation Rules</a>
+<a class="lvl2" href="#12-action-plugin-design">12. Action Plugin Design</a>
+<a class="lvl3" href="#12-1-initial-action-plugins">12.1 Initial Action Plugins</a>
+<a class="lvl3" href="#12-2-action-attempt-status">12.2 Action Attempt Status</a>
+<a class="lvl3" href="#12-3-plugin-capability-contract">12.3 Plugin Capability Contract</a>
+<a class="lvl3" href="#12-4-plugin-execution-context">12.4 Plugin Execution Context</a>
+<a class="lvl3" href="#12-5-normalized-plugin-result">12.5 Normalized Plugin Result</a>
+<a class="lvl3" href="#12-6-error-taxonomy">12.6 Error Taxonomy</a>
+<a class="lvl3" href="#12-7-idempotency-requirements-per-plugin">12.7 Idempotency Requirements Per Plugin</a>
+<a class="lvl2" href="#13-rabbitmq-design">13. RabbitMQ Design</a>
+<a class="lvl3" href="#13-1-queue-topology">13.1 Queue Topology</a>
+<a class="lvl3" href="#13-2-message-contracts">13.2 Message Contracts</a>
+<a class="lvl3" href="#13-3-worker-safety-rules">13.3 Worker Safety Rules</a>
+<a class="lvl3" href="#13-4-workflow-publish-validation">13.4 Workflow Publish Validation</a>
+<a class="lvl2" href="#14-keda-scaling">14. KEDA Scaling</a>
+<a class="lvl2" href="#15-asn-tracking-and-asn-workflow">15. ASN Tracking and ASN Workflow</a>
+<a class="lvl3" href="#15-1-asn-tracking-job-creation">15.1 ASN Tracking Job Creation</a>
+<a class="lvl3" href="#15-2-polling-flow">15.2 Polling Flow</a>
+<a class="lvl3" href="#15-3-asn-source-plugin-assumption">15.3 ASN Source Plugin Assumption</a>
+<a class="lvl3" href="#15-4-two-workflows-one-journey-view">15.4 Two Workflows, One Journey View</a>
+<a class="lvl3" href="#15-5-asn-config-vs-state">15.5 ASN Config vs State</a>
+<a class="lvl2" href="#16-po-amendment">16. PO Amendment</a>
+<a class="lvl2" href="#17-event-flows">17. Event Flows</a>
+<a class="lvl3" href="#17-1-happy-path-po">17.1 Happy Path PO</a>
+<a class="lvl3" href="#17-2-duplicate-po">17.2 Duplicate PO</a>
+<a class="lvl3" href="#17-3-changed-po-after-workflow-completion">17.3 Changed PO After Workflow Completion</a>
+<a class="lvl3" href="#17-4-required-action-timeout">17.4 Required Action Timeout</a>
+<a class="lvl3" href="#17-5-po-ack-failure">17.5 PO Ack Failure</a>
+<a class="lvl3" href="#17-6-asn-data-not-ready">17.6 ASN Data Not Ready</a>
+<a class="lvl3" href="#17-7-asn-partial-acceptance">17.7 ASN Partial Acceptance</a>
+<a class="lvl3" href="#17-8-asn-ready-end-to-end-flow">17.8 ASN Ready End-to-End Flow</a>
+<a class="lvl2" href="#18-observability">18. Observability</a>
+<a class="lvl3" href="#18-1-required-trace-spans">18.1 Required Trace Spans</a>
+<a class="lvl3" href="#18-2-operational-dashboards">18.2 Operational Dashboards</a>
+<a class="lvl3" href="#18-3-alerts">18.3 Alerts</a>
+<a class="lvl2" href="#19-security">19. Security</a>
+<a class="lvl3" href="#19-1-rbac">19.1 RBAC</a>
+<a class="lvl3" href="#19-2-tenant-isolation">19.2 Tenant Isolation</a>
+<a class="lvl3" href="#19-3-audit-requirements">19.3 Audit Requirements</a>
+<a class="lvl2" href="#20-open-config-values">20. Open Config Values</a>
+<a class="lvl2" href="#21-simulator-and-test-provider-strategy">21. Simulator And Test Provider Strategy</a>
+<a class="lvl3" href="#21-1-why-simulator-providers-are-required">21.1 Why Simulator Providers Are Required</a>
+<a class="lvl3" href="#21-2-provider-abstraction">21.2 Provider Abstraction</a>
+<a class="lvl3" href="#21-3-simulator-services">21.3 Simulator Services</a>
+<a class="lvl3" href="#21-4-sim-blinkit-api">21.4 sim-blinkit-api</a>
+<a class="lvl3" href="#21-5-sim-erp-api">21.5 sim-erp-api</a>
+<a class="lvl3" href="#21-6-sim-sheet-api">21.6 sim-sheet-api</a>
+<a class="lvl3" href="#21-7-scenario-catalog">21.7 Scenario Catalog</a>
+<a class="lvl3" href="#21-8-simulator-data-and-assertions">21.8 Simulator Data And Assertions</a>
+<a class="lvl3" href="#21-9-configuration-model">21.9 Configuration Model</a>
+<a class="lvl3" href="#21-10-cutover-strategy">21.10 Cutover Strategy</a>
+<a class="lvl2" href="#22-development-by-components">22. Development By Components</a>
+<a class="lvl3" href="#22-1-foundation-and-core-data-development">22.1 Foundation And Core Data Development</a>
+<a class="lvl3" href="#22-2-api-service-development">22.2 API Service Development</a>
+<a class="lvl3" href="#22-3-simulator-and-test-harness-development">22.3 Simulator And Test Harness Development</a>
+<a class="lvl3" href="#22-4-core-workflow-runtime-development">22.4 Core Workflow Runtime Development</a>
+<a class="lvl3" href="#22-5-plugin-runtime-and-plugin-development">22.5 Plugin Runtime And Plugin Development</a>
+<a class="lvl3" href="#22-6-blinkit-po-integration-development">22.6 Blinkit PO Integration Development</a>
+<a class="lvl3" href="#22-7-asn-runtime-development">22.7 ASN Runtime Development</a>
+<a class="lvl3" href="#22-8-amendment-and-config-development">22.8 Amendment And Config Development</a>
+<a class="lvl3" href="#22-9-ops-audit-and-observability-development">22.9 Ops, Audit, And Observability Development</a>
+<a class="lvl3" href="#22-10-production-hardening">22.10 Production Hardening</a>
+<a class="lvl2" href="#23-implementation-ready-checklist">23. Implementation-Ready Checklist</a>
+<a class="lvl2" href="#24-non-negotiable-guarantees">24. Non-Negotiable Guarantees</a></nav>
+</aside>
+<main>
+<article>
+<div class="source-note"><span class="pill">Source complete</span><span class="pill">Dark theme</span><span class="pill">Cytoscape + Dagre diagrams</span></div>
+<h1 id="edi-integration-platform-technical-design">EDI Integration Platform Technical Design</h1>
+<h2 id="1-purpose">1. Purpose</h2>
+<p>Build a modular EDI integration platform for platform/vendor/seller flows.</p>
+<p>Initial platform: Blinkit via partnersbiz API contracts.</p>
+<p>Core business flows:</p>
+<ul><li>Platform sends Purchase Order creation event to us.</li><li>Workflow runs configured action nodes such as validation, ERP punch, sheet sync, acknowledgement, notification, ASN tracking, and amendment.</li><li>If seller workflow chooses ERP, we punch PO into seller ERP.</li><li>If seller workflow chooses sheet sync or another destination, ERP punch is skipped.</li><li>We send PO acknowledgement to platform when configured workflow edges reach that action.</li><li>A short <code>schedule_asn_tracking</code> action creates durable ASN tracking state after the PO workflow reaches the configured ASN trigger.</li><li>We poll the configured ASN source plugin from <code>asn_tracking_jobs</code>, possibly days later. ERP is the initial/default source plugin.</li><li>We create a separate ASN document and ASN workflow when source data is ready, then send ASN to platform from that ASN workflow.</li><li>User creates PO amendments in our UI.</li><li>We send amendment to platform.</li></ul>
+<p>The platform must support:</p>
+<ul><li>multi-platform onboarding</li><li>multi-vendor and multi-seller isolation</li><li>plugin-based partner adapters</li><li>plugin-based actions</li><li>UI-configurable workflow DAGs</li><li>inherited global/platform/vendor/seller config</li><li>idempotency</li><li>per-PO ordered processing</li><li>retries and dead letters</li><li>audit and traceability</li><li>raw payload replay</li><li>validation rules</li><li>long-running ASN polling</li></ul>
+<h2 id="2-domain-terms">2. Domain Terms</h2>
+<table><thead><tr><th>Term</th><th>Meaning</th></tr></thead><tbody><tr><td>Platform</td><td>External marketplace/procurement system. Blinkit/partnersbiz first.</td></tr><tr><td>Vendor</td><td>Our customer/supplier organization using integration platform.</td></tr><tr><td>Seller</td><td>Fulfillment/supplier entity under vendor.</td></tr><tr><td>Partner Plugin</td><td>Platform-specific parser/mapper/outbound payload builder.</td></tr><tr><td>Action Plugin</td><td>Workflow step implementation: validation, enrichment, ERP, sheet sync, partner ack, ASN scheduling/sync, amendment, notification.</td></tr><tr><td>Canonical Document</td><td>Our common internal representation independent of platform field names.</td></tr><tr><td>Aggregate Key</td><td>Human-readable business key used to correlate all work for the same logical document.</td></tr><tr><td>Aggregate Key Hash</td><td>SHA-256 hash of aggregate key used for compact locks, routing, and high-volume indexes.</td></tr><tr><td>Raw Event</td><td>Immutable inbound/outbound payload snapshot.</td></tr><tr><td>Workflow Node</td><td>One executable workflow step. Validation and approval are action nodes.</td></tr><tr><td>Approval Action</td><td>Workflow action plugin that creates/waits for a manual approval decision. It can be placed before an action, after an action, or at an explicit checkpoint edge.</td></tr><tr><td>ASN Tracking Job</td><td>Durable scheduler/readiness row that bridges a completed PO workflow step to later ASN document creation.</td></tr><tr><td>Journey View</td><td>Read model/API that stitches linked documents, jobs, workflow runs, action attempts, and partner messages into one PO-to-ASN graph.</td></tr><tr><td>Effective Config</td><td>Frozen resolved config for one workflow run after inheritance is applied.</td></tr></tbody></table>
+<h2 id="3-design-principles">3. Design Principles</h2>
+<ol><li>Raw payload is stored before parsing.</li><li>Same PO is processed one event at a time.</li><li>Exact duplicates never produce duplicate side effects.</li><li>Partner-specific code never enters workflow core.</li><li>Action plugins never mutate document state directly.</li><li>Workflow engine is the only state owner.</li><li>State transitions are append-only audited records.</li><li>Actions are independently retryable.</li><li>Long waits are persisted as jobs and timers, not sleeping workers or multi-day action attempts.</li><li>Long-running flows are persisted, not held in memory.</li><li>Corrections create new versions/events; raw history is never mutated.</li></ol>
+<h2 id="4-high-level-architecture">4. High-Level Architecture</h2>
+<section class="graph-card"><div class="graph-title">Rendered Architecture</div><div class="graph" data-graph="highLevel"></div></section>
+<p>The architecture diagram is rendered in the HTML design site with Cytoscape + Dagre. The source graph is represented below in the same node/edge model used by the site.</p>
+<pre><code class="language-json">{
+  &quot;renderer&quot;: &quot;cytoscape-dagre&quot;,
+  &quot;layout&quot;: {
+    &quot;name&quot;: &quot;dagre&quot;,
+    &quot;rankDir&quot;: &quot;TB&quot;
+  },
+  &quot;nodes&quot;: [
+    { &quot;id&quot;: &quot;api&quot;, &quot;label&quot;: &quot;Webhook/API Gateway&quot;, &quot;layer&quot;: &quot;edge&quot; },
+    { &quot;id&quot;: &quot;auth&quot;, &quot;label&quot;: &quot;Auth Guard\nApi-Key + IP allowlist&quot;, &quot;layer&quot;: &quot;edge&quot; },
+    { &quot;id&quot;: &quot;raw&quot;, &quot;label&quot;: &quot;Raw Event Writer&quot;, &quot;layer&quot;: &quot;edge&quot; },
+    { &quot;id&quot;: &quot;idem&quot;, &quot;label&quot;: &quot;Idempotency Service&quot;, &quot;layer&quot;: &quot;core&quot; },
+    { &quot;id&quot;: &quot;ingest&quot;, &quot;label&quot;: &quot;RabbitMQ\nedi.ingestion&quot;, &quot;layer&quot;: &quot;queue&quot; },
+    { &quot;id&quot;: &quot;partner&quot;, &quot;label&quot;: &quot;Partner Plugin Runtime&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;blinkit&quot;, &quot;label&quot;: &quot;Blinkit Partner Plugin&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;canonical&quot;, &quot;label&quot;: &quot;Canonical Document Service&quot;, &quot;layer&quot;: &quot;core&quot; },
+    { &quot;id&quot;: &quot;config&quot;, &quot;label&quot;: &quot;Config Resolver&quot;, &quot;layer&quot;: &quot;core&quot; },
+    { &quot;id&quot;: &quot;workflow&quot;, &quot;label&quot;: &quot;DB-backed Workflow Engine&quot;, &quot;layer&quot;: &quot;core&quot; },
+    { &quot;id&quot;: &quot;approval&quot;, &quot;label&quot;: &quot;Approval Action Plugin&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;outbox&quot;, &quot;label&quot;: &quot;Transactional Outbox&quot;, &quot;layer&quot;: &quot;core&quot; },
+    { &quot;id&quot;: &quot;actionq&quot;, &quot;label&quot;: &quot;RabbitMQ\nAction Queues&quot;, &quot;layer&quot;: &quot;queue&quot; },
+    { &quot;id&quot;: &quot;validation&quot;, &quot;label&quot;: &quot;Validation Ruleset Action&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;erp&quot;, &quot;label&quot;: &quot;ERP Action Plugin&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;sheet&quot;, &quot;label&quot;: &quot;Sheet Sync Action&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;ack&quot;, &quot;label&quot;: &quot;Blinkit PO Ack Action&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;asn&quot;, &quot;label&quot;: &quot;Blinkit ASN Action&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;amendment&quot;, &quot;label&quot;: &quot;Blinkit Amendment Action&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;notify&quot;, &quot;label&quot;: &quot;Notification Action&quot;, &quot;layer&quot;: &quot;plugin&quot; },
+    { &quot;id&quot;: &quot;retry&quot;, &quot;label&quot;: &quot;Retry Scheduler&quot;, &quot;layer&quot;: &quot;core&quot; },
+    { &quot;id&quot;: &quot;retryq&quot;, &quot;label&quot;: &quot;RabbitMQ\nRetry Queue&quot;, &quot;layer&quot;: &quot;queue&quot; },
+    { &quot;id&quot;: &quot;dlq&quot;, &quot;label&quot;: &quot;Dead Letter Queues&quot;, &quot;layer&quot;: &quot;queue&quot; },
+    { &quot;id&quot;: &quot;poller&quot;, &quot;label&quot;: &quot;ASN Poller&quot;, &quot;layer&quot;: &quot;core&quot; },
+    { &quot;id&quot;: &quot;pg&quot;, &quot;label&quot;: &quot;Postgres&quot;, &quot;layer&quot;: &quot;store&quot; },
+    { &quot;id&quot;: &quot;obj&quot;, &quot;label&quot;: &quot;Object Store&quot;, &quot;layer&quot;: &quot;store&quot; },
+    { &quot;id&quot;: &quot;audit&quot;, &quot;label&quot;: &quot;Audit Ledger&quot;, &quot;layer&quot;: &quot;store&quot; },
+    { &quot;id&quot;: &quot;trace&quot;, &quot;label&quot;: &quot;Logs / Metrics / Traces&quot;, &quot;layer&quot;: &quot;store&quot; },
+    { &quot;id&quot;: &quot;secrets&quot;, &quot;label&quot;: &quot;Secrets Manager&quot;, &quot;layer&quot;: &quot;store&quot; }
+  ],
+  &quot;edges&quot;: [
+    [&quot;api&quot;, &quot;auth&quot;],
+    [&quot;auth&quot;, &quot;raw&quot;],
+    [&quot;raw&quot;, &quot;idem&quot;],
+    [&quot;raw&quot;, &quot;obj&quot;],
+    [&quot;idem&quot;, &quot;ingest&quot;],
+    [&quot;idem&quot;, &quot;pg&quot;],
+    [&quot;ingest&quot;, &quot;partner&quot;],
+    [&quot;partner&quot;, &quot;blinkit&quot;],
+    [&quot;partner&quot;, &quot;canonical&quot;],
+    [&quot;canonical&quot;, &quot;workflow&quot;],
+    [&quot;config&quot;, &quot;workflow&quot;],
+    [&quot;workflow&quot;, &quot;outbox&quot;],
+    [&quot;outbox&quot;, &quot;actionq&quot;],
+    [&quot;actionq&quot;, &quot;approval&quot;],
+    [&quot;actionq&quot;, &quot;validation&quot;],
+    [&quot;actionq&quot;, &quot;erp&quot;],
+    [&quot;actionq&quot;, &quot;sheet&quot;],
+    [&quot;actionq&quot;, &quot;ack&quot;],
+    [&quot;actionq&quot;, &quot;asn&quot;],
+    [&quot;actionq&quot;, &quot;amendment&quot;],
+    [&quot;actionq&quot;, &quot;notify&quot;],
+    [&quot;approval&quot;, &quot;workflow&quot;],
+    [&quot;validation&quot;, &quot;workflow&quot;],
+    [&quot;erp&quot;, &quot;workflow&quot;],
+    [&quot;sheet&quot;, &quot;workflow&quot;],
+    [&quot;ack&quot;, &quot;workflow&quot;],
+    [&quot;asn&quot;, &quot;workflow&quot;],
+    [&quot;amendment&quot;, &quot;workflow&quot;],
+    [&quot;notify&quot;, &quot;workflow&quot;],
+    [&quot;retry&quot;, &quot;retryq&quot;],
+    [&quot;retryq&quot;, &quot;actionq&quot;],
+    [&quot;workflow&quot;, &quot;poller&quot;],
+    [&quot;poller&quot;, &quot;erp&quot;],
+    [&quot;workflow&quot;, &quot;pg&quot;],
+    [&quot;workflow&quot;, &quot;audit&quot;],
+    [&quot;workflow&quot;, &quot;trace&quot;],
+    [&quot;actionq&quot;, &quot;dlq&quot;],
+    [&quot;approval&quot;, &quot;secrets&quot;],
+    [&quot;validation&quot;, &quot;secrets&quot;],
+    [&quot;erp&quot;, &quot;secrets&quot;],
+    [&quot;sheet&quot;, &quot;secrets&quot;],
+    [&quot;ack&quot;, &quot;secrets&quot;],
+    [&quot;asn&quot;, &quot;secrets&quot;],
+    [&quot;amendment&quot;, &quot;secrets&quot;],
+    [&quot;notify&quot;, &quot;secrets&quot;],
+    [&quot;approval&quot;, &quot;obj&quot;],
+    [&quot;validation&quot;, &quot;obj&quot;],
+    [&quot;erp&quot;, &quot;obj&quot;],
+    [&quot;sheet&quot;, &quot;obj&quot;],
+    [&quot;ack&quot;, &quot;obj&quot;],
+    [&quot;asn&quot;, &quot;obj&quot;],
+    [&quot;amendment&quot;, &quot;obj&quot;],
+    [&quot;notify&quot;, &quot;obj&quot;]
+  ]
+}</code></pre>
+<h2 id="5-technology-choices">5. Technology Choices</h2>
+<table><thead><tr><th>Concern</th><th>Decision</th><th>Reason</th></tr></thead><tbody><tr><td>Operational state</td><td>Postgres</td><td>Transactions, locks, JSONB, constraints, audit-friendly.</td></tr><tr><td>Raw payload storage</td><td>S3-compatible object store</td><td>Preserve large immutable payloads.</td></tr><tr><td>Messaging</td><td>RabbitMQ</td><td>Good fit for work queues, retries, DLQ, routing by action type.</td></tr><tr><td>Ordering</td><td>Postgres aggregate lock/version, optional RabbitMQ consistent hash</td><td>RabbitMQ alone is not enough; DB lock is mandatory.</td></tr><tr><td>Workflow</td><td>DB-backed workflow engine</td><td>Document state machine is core. Avoid external workflow lock-in initially.</td></tr><tr><td>Scaling</td><td>Kubernetes Deployments + KEDA ScaledJobs/ScaledObjects</td><td>Scale workers/pollers based on queue depth/schedule.</td></tr><tr><td>Secrets</td><td>Vault/Secrets Manager</td><td>API keys and ERP credentials stay out of DB.</td></tr><tr><td>Observability</td><td>OpenTelemetry + structured logs + metrics</td><td>Trace async flow across services.</td></tr></tbody></table>
+<h2 id="6-services">6. Services</h2>
+<h3 id="6-1-ingress-api-service">6.1 Ingress API Service</h3>
+<p>Responsibilities:</p>
+<ul><li>expose platform webhooks</li><li>authenticate <code>Api-Key</code></li><li>validate IP allowlist</li><li>detect content type JSON/XML</li><li>assign <code>trace_id</code></li><li>store raw event in object store</li><li>insert <code>raw_events</code></li><li>compute payload hash and non-unique dedupe key</li><li>enqueue ingestion job after append-only raw storage</li></ul>
+<p>It does not:</p>
+<ul><li>run business validation</li><li>call ERP</li><li>call partnersbiz outbound APIs</li></ul>
+<h3 id="6-2-document-worker">6.2 Document Worker</h3>
+<p>Responsibilities:</p>
+<ul><li>consume ingestion jobs</li><li>lock aggregate in Postgres</li><li>load partner plugin</li><li>parse partner payload</li><li>map to canonical document</li><li>create document version</li><li>resolve effective published workflow</li><li>create workflow run</li><li>hand off execution to workflow engine</li></ul>
+<h3 id="6-3-outbox-dispatcher">6.3 Outbox Dispatcher</h3>
+<p>Responsibilities:</p>
+<ul><li>read pending outbox rows</li><li>publish RabbitMQ action jobs</li><li>mark outbox rows as dispatched</li><li>retry safe publish failures</li></ul>
+<h3 id="6-4-action-workers">6.4 Action Workers</h3>
+<p>Responsibilities:</p>
+<ul><li>claim workflow node/action work</li><li>claim action attempts</li><li>execute configured action plugin</li><li>store request/response payloads</li><li>return normalized action result</li><li>let workflow update document state</li></ul>
+<p>Validation workers use the same action worker model. <code>validation.ruleset_engine</code> is an action plugin that runs inside workflow, stores <code>validation_results</code>, and returns <code>success</code>, <code>rejected</code>, <code>retryable_failure</code>, or <code>permanent_failure</code>.</p>
+<p>Approval workers also use the same action worker model. <code>approval.manual_decision</code> is an action plugin that creates or waits for <code>approval_tasks</code>, stores the approver decision, and returns <code>approved</code>, <code>rejected</code>, <code>expired</code>, or <code>cancelled</code>.</p>
+<h3 id="6-5-asn-poller">6.5 ASN Poller</h3>
+<p>Responsibilities:</p>
+<ul><li>find due <code>asn_tracking_jobs</code></li><li>call configured ASN source plugin</li><li>record every poll in <code>asn_tracking_job_attempts</code></li><li>create canonical ASN document/version when source data is ready</li><li>link ASN document to PO with <code>document_links</code></li><li>create separate ASN workflow run when source data is ready</li><li>reschedule when source plugin says <code>not_ready</code></li><li>route incomplete data to review or reschedule based on policy</li></ul>
+<p>It can be implemented as KEDA Cron/ScaledJob or long-running scheduled worker.</p>
+<p>The poller is not a replacement for workflow actions. The PO workflow contains a short <code>schedule_asn_tracking</code> action that creates the tracking job and completes. The long wait belongs to <code>asn_tracking_jobs</code>; ASN validation and ASN sync belong to the later ASN workflow.</p>
+<h3 id="6-6-ops-api-ui">6.6 Ops API/UI</h3>
+<p>Responsibilities:</p>
+<ul><li>search by PO/invoice/trace id</li><li>inspect raw/canonical payloads</li><li>view state transitions</li><li>retry action</li><li>replay raw event</li><li>trigger ASN poll now</li><li>resend ack/ASN</li><li>create amendment</li><li>restricted state override with audit reason</li></ul>
+<h3 id="6-7-config-admin-api">6.7 Config/Admin API</h3>
+<p>Responsibilities:</p>
+<ul><li>create/edit workflow drafts</li><li>validate workflow graph before publish</li><li>publish immutable workflow versions</li><li>assign workflows at global/platform/vendor/seller scope</li><li>create/edit ruleset drafts</li><li>publish ruleset versions</li><li>configure action plugin settings</li><li>configure approval policy overrides</li><li>configure retry policy overrides</li><li>expose effective config preview before publish</li></ul>
+<p>This API is design-time only. It must not mutate runtime workflow runs.</p>
+<h3 id="6-8-runtime-api-surface">6.8 Runtime API Surface</h3>
+<p>Platform webhook APIs:</p>
+<pre><code class="language-text">POST /webhooks/{platform}/purchase-orders
+POST /webhooks/{platform}/asn-events optional future</code></pre>
+<p>Ops APIs:</p>
+<pre><code class="language-text">GET  /ops/documents?platform=&amp;seller=&amp;externalDocumentId=
+GET  /ops/documents/{documentId}
+GET  /ops/documents/{documentId}/versions
+GET  /ops/workflow-runs/{workflowRunId}
+GET  /ops/traces/{traceId}
+POST /ops/action-attempts/{actionAttemptId}/retry
+POST /ops/raw-events/{rawEventId}/replay
+POST /ops/asn-tracking-jobs/{asnTrackingJobId}/poll-now
+POST /ops/approvals/{approvalTaskId}/approve
+POST /ops/approvals/{approvalTaskId}/reject
+POST /ops/amendments</code></pre>
+<p>Config APIs:</p>
+<pre><code class="language-text">POST /config/workflow-templates
+POST /config/workflow-versions/{versionId}/validate
+POST /config/workflow-versions/{versionId}/publish
+POST /config/workflow-assignments
+POST /config/ruleset-versions
+POST /config/ruleset-versions/{versionId}/publish
+POST /config/action-plugin-configs
+POST /config/approval-policies
+POST /config/retry-policies
+GET  /config/effective?platform=&amp;vendor=&amp;seller=&amp;documentType=</code></pre>
+<h3 id="6-9-critical-worker-algorithms">6.9 Critical Worker Algorithms</h3>
+<p>Ingress API algorithm:</p>
+<pre><code class="language-text">1. authenticate Api-Key and IP allowlist
+2. resolve platform_account, vendor, seller
+3. assign trace_id
+4. persist raw payload to object store
+5. insert raw_events row with status=stored
+6. compute payload_hash and non-unique dedupe_key
+7. enqueue edi.ingestion through outbox or direct publish with DB record
+8. return 202 accepted</code></pre>
+<p>Document worker algorithm:</p>
+<pre><code class="language-text">1. consume ingestion message
+2. lock aggregate_key row or document identity
+3. load raw_event and latest document/version
+4. run partner parser/mapper only
+5. if parse fails:
+     raw_event=parse_failed, dead letter/replay metadata, stop
+6. compare payload hash with latest version
+7. if exact duplicate:
+     set raw_event.duplicate_of_raw_event_id, raw_event=duplicate, stop
+8. if changed same PO:
+     apply same-PO policy based on existing workflow/action position
+9. create document and document_version
+10. resolve effective published workflow/config
+11. insert resolved_config_snapshot
+12. create workflow_run and first workflow_node_runs
+13. append state_transitions
+14. write outbox rows for ready nodes</code></pre>
+<p>Workflow engine algorithm:</p>
+<pre><code class="language-text">1. receive node result from action worker
+2. lock workflow_run
+3. update workflow_node_run status
+4. append state_transitions
+5. evaluate outgoing edges by node status and condition_expr
+6. create next workflow_node_runs when dependencies are satisfied
+7. create action_attempts as needed, including approval action attempts
+8. write outbox rows transactionally
+9. update workflow_run/document state
+10. complete/fail/block workflow if terminal conditions are met</code></pre>
+<p>Action worker algorithm:</p>
+<pre><code class="language-text">1. consume action message
+2. lock workflow_node_run and action_attempt
+3. verify node is claimable and not stale
+4. build plugin context from frozen config snapshot
+5. call plugin.prepare
+6. store outbound request_ref if plugin calls an external system
+7. call plugin.execute
+8. store raw response_ref if plugin receives external response
+9. call plugin.interpret
+10. persist normalized result
+11. notify workflow engine
+
+Approval is not hidden inside this worker algorithm. If approval is required, workflow contains an explicit approval action node such as `approval.manual_decision`. That approval action creates or waits on `approval_tasks`, then returns `approved`, `rejected`, `expired`, or `cancelled`.</code></pre>
+<h2 id="7-canonical-documents">7. Canonical Documents</h2>
+<h3 id="7-1-document-envelope">7.1 Document Envelope</h3>
+<p>Common wrapper around all documents:</p>
+<pre><code class="language-json">{
+  &quot;id&quot;: &quot;uuid&quot;,
+  &quot;traceId&quot;: &quot;uuid&quot;,
+  &quot;documentType&quot;: &quot;purchase_order&quot;,
+  &quot;platformCode&quot;: &quot;blinkit&quot;,
+  &quot;vendorId&quot;: &quot;vendor_acme&quot;,
+  &quot;sellerId&quot;: &quot;uuid&quot;,
+  &quot;externalDocumentId&quot;: &quot;2264110001440&quot;,
+  &quot;sourceRawEventId&quot;: &quot;uuid&quot;,
+  &quot;schemaVersion&quot;: &quot;purchase_order.v1&quot;,
+  &quot;currentState&quot;: &quot;in_workflow&quot;,
+  &quot;metadata&quot;: {
+    &quot;blinkit&quot;: {}
+  }
+}</code></pre>
+<h3 id="7-2-purchaseorder">7.2 PurchaseOrder</h3>
+<p>Core fields:</p>
+<ul><li><code>poNumber</code></li><li><code>issueDate</code></li><li><code>expiryDate</code></li><li><code>deliveryDate</code></li><li><code>buyer</code></li><li><code>supplier</code></li><li><code>delivery</code></li><li><code>lines[]</code></li><li><code>totals</code></li><li><code>metadata</code></li></ul>
+<p>Line fields:</p>
+<ul><li><code>lineNumber</code></li><li><code>itemId</code></li><li><code>skuCode</code></li><li><code>upc</code></li><li><code>description</code></li><li><code>quantityOrdered</code></li><li><code>prices</code></li><li><code>tax</code></li><li><code>uom</code></li><li><code>packaging</code></li></ul>
+<h3 id="7-3-asn">7.3 ASN</h3>
+<p>Core fields are based on Blinkit ASN API payload:</p>
+<ul><li><code>poNumber</code></li><li><code>invoiceNumber</code></li><li><code>invoiceDate</code></li><li><code>deliveryDate</code></li><li><code>taxDistribution[]</code></li><li><code>basicPrice</code></li><li><code>landingPrice</code></li><li><code>boxCount</code></li><li><code>quantity</code></li><li><code>caseConfig</code></li><li><code>itemCount</code></li><li><code>poStatus</code></li><li><code>supplierDetails</code></li><li><code>buyerDetails</code></li><li><code>shipmentDetails</code></li><li><code>items[]</code></li></ul>
+<p>Item fields:</p>
+<ul><li><code>itemId</code></li><li><code>skuCode</code></li><li><code>batchNumber</code></li><li><code>skuDescription</code></li><li><code>upc</code></li><li><code>quantity</code></li><li><code>mrp</code></li><li><code>hsnCode</code></li><li><code>taxDistribution</code></li><li><code>unitDiscountAmount</code></li><li><code>unitDiscountPercentage</code></li><li><code>unitBasicPrice</code></li><li><code>unitLandingPrice</code></li><li><code>expiryDate</code></li><li><code>mfgDate</code></li><li><code>shelfLife</code></li><li><code>uom</code></li><li><code>noOfPackages</code></li><li><code>codeCategory</code></li><li><code>codes[]</code></li><li><code>caseConfiguration[]</code></li></ul>
+<h3 id="7-4-poacknowledgement">7.4 POAcknowledgement</h3>
+<p>Fields:</p>
+<ul><li><code>poNumber</code></li><li><code>status</code>: <code>processing | accepted | partially_accepted | rejected</code></li><li><code>success</code></li><li><code>message</code></li><li><code>errors[]</code></li><li><code>warnings[]</code></li></ul>
+<h3 id="7-5-poamendment">7.5 POAmendment</h3>
+<p>Fields:</p>
+<ul><li><code>amendmentId</code></li><li><code>poNumbers[]</code></li><li><code>itemVariants[]</code></li><li><code>reason</code></li><li><code>createdBy</code></li></ul>
+<p>Variant:</p>
+<ul><li><code>itemId</code></li><li><code>upc</code></li><li><code>mrp</code></li><li><code>uom</code></li><li><code>poNumbers[]</code></li></ul>
+<h2 id="8-database-schema">8. Database Schema</h2>
+<section class="graph-card"><div class="graph-title">Database Relationship Map</div><div class="graph" data-graph="db"></div></section>
+<p>Core tables:</p>
+<pre><code class="language-text">brands
+vendors
+sellers
+platform_accounts
+credentials
+raw_events
+idempotency_keys
+documents
+document_versions
+document_links
+state_transitions
+domain_events
+validation_results
+workflow_templates
+workflow_versions
+workflow_nodes
+workflow_edges
+workflow_layouts
+workflow_assignments
+workflow_runs
+workflow_node_runs
+approval_tasks
+rule_definitions
+ruleset_versions
+ruleset_rules
+ruleset_assignments
+action_plugin_configs
+approval_policy_versions
+retry_policy_versions
+resolved_config_snapshots
+outbox
+action_attempts
+partner_messages
+asn_tracking_jobs
+asn_tracking_job_attempts
+dead_letters
+audit_log
+plugin_registry</code></pre>
+<h3 id="8-1-important-constraints">8.1 Important Constraints</h3>
+<pre><code class="language-sql">-- One business document identity.
+unique(platform_code, seller_id, doc_type, external_doc_id)
+
+-- Immutable version history and exact duplicate protection.
+unique(document_id, version)
+unique(document_id, payload_hash)
+
+-- Action retry identity.
+unique(action_attempt_id, attempt_no)
+
+-- Workflow execution identity.
+unique(document_version_id, workflow_version_id)
+unique(workflow_run_id, node_key)
+
+-- Queue and partner side-effect identity.
+unique(outbox.source_type, outbox.source_id, outbox.event_type)
+unique(partner_messages.platform_code, partner_messages.endpoint, partner_messages.idempotency_key)
+
+-- ASN readiness identity.
+unique(asn_tracking_jobs.po_document_id, asn_tracking_jobs.po_document_version_id, asn_tracking_jobs.source_plugin_id)
+unique(asn_tracking_job_attempts.asn_tracking_job_id, asn_tracking_job_attempts.attempt_no)</code></pre>
+<h3 id="8-2-aggregate-key">8.2 Aggregate Key</h3>
+<p>The aggregate key concept is standard in event-driven systems, but the exact string format is our convention. Similar names in other systems are aggregate id, business key, correlation key, message key, or partition key.</p>
+<pre><code class="language-text">aggregate_key = platform_code + &quot;:&quot; + seller_id + &quot;:&quot; + doc_type + &quot;:&quot; + external_doc_id
+aggregate_key_hash = sha256(aggregate_key)</code></pre>
+<p>Example:</p>
+<pre><code class="language-text">aggregate_key      = blinkit:seller_67890:purchase_order:2264110001440
+aggregate_key_hash = sha256:7b8f4e...</code></pre>
+<p>Use both values:</p>
+<table><thead><tr><th>Field</th><th>Use</th></tr></thead><tbody><tr><td><code>aggregate_key</code></td><td>Ops search, logs, audit, readable trace/debug context.</td></tr><tr><td><code>aggregate_key_hash</code></td><td>Advisory locks, compact queue routing/partitioning, high-cardinality indexes.</td></tr></tbody></table>
+<p>Do not use only Base64. Base64 is only encoding and makes operations harder. Do not use only hash because async debugging becomes painful. Keep readable text and hash together.</p>
+<p>Same aggregate key means same ordered processing lane. Same aggregate key hash means same compact lock/routing target.</p>
+<h3 id="8-3-blinkit-identity-mapping">8.3 Blinkit Identity Mapping</h3>
+<p>Blinkit does not provide our internal <code>vendor_id</code>, <code>seller_id</code>, or <code>brand_id</code>.</p>
+<p>Blinkit PO creation provides external identifiers:</p>
+<pre><code class="language-text">tenant = HYPERPURE
+details.supplier_details.id = 67890
+details.supplier_details.gstin = 27ABCDE1234F1Z5
+details.outlet_id = 12543
+details.item_data[].item_id = 10016623
+details.item_data[].sku_code / upc</code></pre>
+<p>Ingestion resolves these once:</p>
+<pre><code class="language-text">tenant + supplier_details.id + optional GSTIN/outlet
+-&gt; platform_accounts
+-&gt; vendor_id + seller_id
+
+item_id / sku_code / upc
+-&gt; seller_item_mappings
+-&gt; brand_id</code></pre>
+<p>Minimal management rule:</p>
+<ul><li><code>platform_accounts</code> owns external account/supplier identity mapping.</li><li><code>seller_item_mappings</code> owns external item-to-internal-brand mapping.</li><li><code>raw_events</code>, <code>documents</code>, workflow runs, ASN jobs, and audit rows store resolved <code>vendor_id</code> and <code>seller_id</code>.</li><li><code>brand_id</code> is internal enrichment for product ownership/reporting/validation, not a Blinkit field.</li></ul>
+<p>If a Blinkit PO arrives with unknown supplier mapping, store the raw event and mark it <code>needs_mapping</code>; do not run external side effects. If an item mapping is unknown, create a pending item mapping and block only the workflow node that needs missing ASN fields.</p>
+<h3 id="8-4-detailed-operational-schema">8.4 Detailed Operational Schema</h3>
+<p>This is the implementation-level table shape. Exact SQL types can be adjusted, but these columns are the required persistence contracts.</p>
+<h4 id="raw-events">raw_events</h4>
+<pre><code class="language-text">id
+trace_id
+platform_code
+vendor_id
+seller_id
+event_type
+external_document_id
+aggregate_key
+aggregate_key_hash
+dedupe_key
+duplicate_of_raw_event_id
+payload_hash
+headers_json
+content_type
+raw_payload_ref
+status
+received_at
+processed_at
+error_code
+error_message
+created_at
+updated_at</code></pre>
+<p>Purpose:</p>
+<ul><li>immutable inbound/outbound event envelope</li><li>stores every webhook, including duplicates and failed parses</li><li>first traceability anchor for a PO journey</li></ul>
+<p>Indexes:</p>
+<pre><code class="language-sql">index(dedupe_key)
+index(platform_code, seller_id, external_document_id, payload_hash)
+index(aggregate_key_hash, received_at)
+index(aggregate_key)
+index(trace_id)
+index(platform_code, seller_id, external_document_id)
+index(status, received_at)</code></pre>
+<h4 id="documents">documents</h4>
+<pre><code class="language-text">id
+document_type
+platform_code
+vendor_id
+seller_id
+external_document_id
+aggregate_key
+aggregate_key_hash
+current_version_id
+current_state
+created_from_raw_event_id
+created_at
+updated_at</code></pre>
+<p>Purpose:</p>
+<ul><li>canonical business document identity</li><li>does not contain plugin-specific lifecycle such as ERP synced or ack sent</li></ul>
+<h4 id="document-versions">document_versions</h4>
+<pre><code class="language-text">id
+document_id
+version
+source_raw_event_id
+payload_hash
+canonical_json
+partner_metadata_json
+change_summary_json
+created_by_type
+created_by_id
+created_at</code></pre>
+<p>Purpose:</p>
+<ul><li>immutable version history</li><li>same PO with changed payload creates a new version when allowed</li><li>old versions remain available for audit and replay</li></ul>
+<h4 id="workflow-templates">workflow_templates</h4>
+<pre><code class="language-text">id
+name
+document_type
+platform_code
+scope_type
+scope_id
+status
+created_by
+created_at
+updated_at</code></pre>
+<p>Purpose:</p>
+<ul><li>logical workflow family, for example <code>Blinkit Purchase Order Default</code></li></ul>
+<h4 id="workflow-versions">workflow_versions</h4>
+<pre><code class="language-text">id
+workflow_template_id
+version
+status = draft / published / archived
+definition_hash
+published_at
+published_by
+created_at
+updated_at</code></pre>
+<p>Rule:</p>
+<ul><li>published versions are immutable</li><li>UI edits create a new draft version</li></ul>
+<h4 id="workflow-nodes">workflow_nodes</h4>
+<pre><code class="language-text">id
+workflow_version_id
+node_key
+node_type
+plugin_id
+required
+config_json
+retry_policy_ref
+timeout_seconds
+created_at</code></pre>
+<p>Examples:</p>
+<pre><code class="language-text">validate_po -&gt; action -&gt; validation.ruleset_engine
+approve_before_erp -&gt; action -&gt; approval.manual_decision
+erp_punch -&gt; action -&gt; erp.punch_po
+approve_after_erp -&gt; action -&gt; approval.manual_decision
+sheet_sync -&gt; action -&gt; sheet.sync_po
+po_ack -&gt; action -&gt; blinkit.po_ack</code></pre>
+<h4 id="workflow-edges">workflow_edges</h4>
+<pre><code class="language-text">id
+workflow_version_id
+from_node_key
+to_node_key
+on_status
+condition_expr
+created_at</code></pre>
+<p>Examples:</p>
+<pre><code class="language-text">validate_po success -&gt; erp_punch
+validate_po rejected -&gt; manual_review
+erp_punch success -&gt; blinkit_po_ack</code></pre>
+<h4 id="workflow-layouts">workflow_layouts</h4>
+<pre><code class="language-text">id
+workflow_version_id
+node_key
+x
+y
+width
+height
+ui_metadata_json
+updated_at</code></pre>
+<p>Purpose:</p>
+<ul><li>UI-only drag/drop layout</li><li>not used for backend execution</li></ul>
+<h4 id="workflow-assignments">workflow_assignments</h4>
+<pre><code class="language-text">id
+scope_type = global / platform / vendor / seller
+scope_id
+platform_code
+document_type
+workflow_version_id
+priority
+effective_from
+effective_until
+created_at</code></pre>
+<p>Resolution:</p>
+<pre><code class="language-text">seller &gt; vendor &gt; platform &gt; global</code></pre>
+<h4 id="workflow-runs">workflow_runs</h4>
+<pre><code class="language-text">id
+document_id
+document_version_id
+workflow_version_id
+resolved_config_snapshot_id
+status
+started_at
+completed_at
+created_at
+updated_at</code></pre>
+<h4 id="workflow-node-runs">workflow_node_runs</h4>
+<pre><code class="language-text">id
+workflow_run_id
+node_key
+node_type
+plugin_id
+status
+input_snapshot_json
+output_json
+started_at
+completed_at
+updated_at</code></pre>
+<h4 id="approval-tasks">approval_tasks</h4>
+<pre><code class="language-text">id
+workflow_run_id
+approval_workflow_node_run_id
+target_workflow_node_run_id nullable
+target_plugin_id nullable
+approval_phase = pre_action / post_action / checkpoint / publish
+status = pending / approved / rejected / expired / cancelled
+requested_role
+requested_user_id
+approved_by
+decision_reason
+decision_payload_json
+created_at
+decided_at
+expires_at</code></pre>
+<h4 id="action-attempts">action_attempts</h4>
+<pre><code class="language-text">id
+workflow_node_run_id
+plugin_id
+attempt_no
+status
+idempotency_key
+request_ref
+response_ref
+error_code
+error_message
+next_retry_at
+started_at
+completed_at
+created_at</code></pre>
+<h4 id="validation-results">validation_results</h4>
+<pre><code class="language-text">id
+workflow_run_id
+workflow_node_run_id
+action_attempt_id
+ruleset_version_id
+status
+findings_json
+created_at</code></pre>
+<p>Validation results are produced only by the validation action plugin. They are not a separate pre-workflow state source.</p>
+<h4 id="rule-definitions">rule_definitions</h4>
+<pre><code class="language-text">id
+rule_key
+rule_type
+description
+input_schema_json
+default_config_json
+created_at
+updated_at</code></pre>
+<h4 id="ruleset-versions">ruleset_versions</h4>
+<pre><code class="language-text">id
+name
+scope_type
+scope_id
+document_type
+version
+status
+published_at
+published_by
+created_at</code></pre>
+<h4 id="ruleset-rules">ruleset_rules</h4>
+<pre><code class="language-text">id
+ruleset_version_id
+rule_key
+enabled
+severity
+blocking
+locked
+seller_can_disable
+seller_can_override_config
+allowed_override_fields_json
+config_json
+created_at</code></pre>
+<h4 id="ruleset-assignments">ruleset_assignments</h4>
+<pre><code class="language-text">id
+scope_type
+scope_id
+platform_code
+document_type
+ruleset_version_id
+priority
+effective_from
+effective_until</code></pre>
+<h4 id="action-plugin-configs">action_plugin_configs</h4>
+<pre><code class="language-text">id
+plugin_id
+scope_type
+scope_id
+version
+status
+config_json
+secret_refs_json
+published_at
+created_at</code></pre>
+<h4 id="approval-policy-versions">approval_policy_versions</h4>
+<pre><code class="language-text">id
+plugin_id
+scope_type
+scope_id
+version
+required
+seller_can_override
+default_phase = pre_action / post_action / checkpoint / publish
+allowed_phases_json
+allowed_override_fields_json
+approver_role
+timeout_seconds
+escalation_policy_json
+status
+published_at</code></pre>
+<h4 id="retry-policy-versions">retry_policy_versions</h4>
+<pre><code class="language-text">id
+policy_key
+scope_type
+scope_id
+version
+max_attempts
+initial_delay_seconds
+backoff_multiplier
+max_delay_seconds
+retryable_error_codes_json
+status
+published_at</code></pre>
+<h4 id="resolved-config-snapshots">resolved_config_snapshots</h4>
+<pre><code class="language-text">id
+document_id
+document_version_id
+workflow_version_id
+ruleset_version_id
+resolved_from_json
+action_configs_json
+approval_policies_json
+retry_policies_json
+plugin_versions_json
+created_at</code></pre>
+<p>Purpose:</p>
+<ul><li>freezes all inherited global/platform/vendor/seller config used by a workflow run</li><li>makes historical execution reproducible and auditable</li></ul>
+<h4 id="outbox">outbox</h4>
+<pre><code class="language-text">id
+aggregate_key
+aggregate_key_hash
+event_type
+destination_queue
+payload_json
+status = pending / dispatched / failed
+available_at
+dispatched_at
+created_at</code></pre>
+<h4 id="asn-tracking-jobs">asn_tracking_jobs</h4>
+<pre><code class="language-text">id
+po_document_id
+po_document_version_id
+seller_id
+source_plugin_id
+status = waiting / polling / not_ready / data_incomplete / ready / created_asn / cancelled / expired / failed
+next_poll_at
+max_poll_until
+attempt_count
+created_asn_document_id nullable
+created_asn_document_version_id nullable
+last_error_code
+last_error_message
+created_at
+updated_at</code></pre>
+<p>Purpose:</p>
+<ul><li>durable timer/readiness state for ASN creation</li><li>created by short <code>schedule_asn_tracking</code> workflow action</li><li>not a business document and not a long-running action attempt</li><li>allows polling to survive deploys, restarts, and multi-day waits</li></ul>
+<h4 id="asn-tracking-job-attempts">asn_tracking_job_attempts</h4>
+<pre><code class="language-text">id
+asn_tracking_job_id
+attempt_no
+source_plugin_id
+status = not_ready / data_incomplete / ready / retryable_failure / permanent_failure
+request_ref
+response_ref
+error_code
+error_message
+started_at
+completed_at
+created_at</code></pre>
+<p>Purpose:</p>
+<ul><li>append-only history of every ASN source poll</li><li>stores object refs for ERP/file/API request and response payloads</li><li>separates readiness polling from outbound ASN sync attempts</li></ul>
+<h4 id="partner-messages">partner_messages</h4>
+<pre><code class="language-text">id
+action_attempt_id
+platform_code
+direction = inbound / outbound
+endpoint
+request_ref
+response_ref
+status_code
+created_at</code></pre>
+<h4 id="state-transitions">state_transitions</h4>
+<pre><code class="language-text">id
+entity_type
+entity_id
+from_state
+to_state
+reason
+actor_type
+actor_id
+trace_id
+metadata_json
+created_at</code></pre>
+<p>Append-only. No update/delete in normal operation.</p>
+<h2 id="9-state-management">9. State Management</h2>
+<p>State is split across four independent layers. This is intentional.</p>
+<ol><li><code>raw_events</code> tracks the platform webhook/event lifecycle.</li><li><code>documents</code> tracks canonical business document lifecycle.</li><li><code>workflow_runs</code> tracks configurable workflow execution.</li><li><code>action_attempts</code> tracks each plugin execution.</li></ol>
+<p>PO state must not contain ERP-specific stages. ERP punch, sheet sync, ASN creation, notifications, and validation are workflow action nodes/action attempts. A seller may choose ERP punch, sheet sync, both, or neither.</p>
+<h3 id="9-1-raw-webhook-event-states">9.1 Raw Webhook/Event States</h3>
+<p>Every webhook from Blinkit creates a <code>raw_events</code> row, including duplicates.</p>
+<pre><code class="language-diagram-source">stateDiagram-v2
+  [*] --&gt; received
+  received --&gt; stored
+  stored --&gt; dedupe_checked
+  dedupe_checked --&gt; duplicate
+  dedupe_checked --&gt; queued
+  queued --&gt; processing
+  processing --&gt; processed
+  processing --&gt; parse_failed
+  processing --&gt; routing_failed
+  processing --&gt; processing_failed
+  processing_failed --&gt; dead_lettered
+  duplicate --&gt; [*]
+  processed --&gt; [*]</code></pre>
+<p><code>raw_event.processed</code> means the platform event was accepted into our system. It does not mean the PO business workflow is finished.</p>
+<h3 id="9-2-document-states">9.2 Document States</h3>
+<p>Documents stay generic and business-level.</p>
+<pre><code class="language-text">created
+ready
+in_workflow
+waiting
+completed
+failed
+cancelled
+blocked</code></pre>
+<p>Example: a <code>PurchaseOrder</code> can be <code>in_workflow</code> while its configured workflow runs ERP punch, sheet sync, PO ack, notifications, or ASN scheduling actions.</p>
+<h3 id="9-3-workflow-run-states">9.3 Workflow Run States</h3>
+<p>Each document gets one or more workflow runs.</p>
+<pre><code class="language-text">pending
+running
+waiting
+completed
+failed
+cancelled</code></pre>
+<p>Workflow steps are configured per vendor/seller/platform. Example seller A may run ERP punch; seller B may run sheet sync.</p>
+<p>Workflow definitions are versioned DAGs. A running workflow always references a published immutable <code>workflow_version_id</code> and a frozen <code>resolved_config_snapshot_id</code>.</p>
+<h3 id="9-3-1-workflow-node-run-states">9.3.1 Workflow Node Run States</h3>
+<p>Each workflow node execution is tracked separately from the overall workflow.</p>
+<pre><code class="language-text">pending
+ready
+waiting
+running
+success
+rejected
+retry_scheduled
+failed
+skipped
+cancelled</code></pre>
+<h3 id="9-4-action-attempt-states">9.4 Action Attempt States</h3>
+<p>Each plugin execution is tracked independently.</p>
+<pre><code class="language-text">pending
+waiting
+running
+success
+partial_success
+approved
+rejected
+expired
+retryable_failure
+permanent_failure
+retry_scheduled
+dead_lettered
+cancelled
+skipped</code></pre>
+<h3 id="9-5-asn-tracking-job-asn-document-states">9.5 ASN Tracking Job / ASN Document States</h3>
+<pre><code class="language-text">waiting_for_asn
+polling_source_plugin
+asn_data_incomplete
+asn_ready
+accepted
+partially_accepted
+rejected
+dead_lettered</code></pre>
+<p>ASN validation and ASN send are not separate ASN document states. They are workflow nodes/action attempts inside the ASN workflow:</p>
+<pre><code class="language-text">asn_ready
+-&gt; ASN workflow run
+   -&gt; validation.ruleset_engine action
+   -&gt; blinkit.asn_sync action
+-&gt; accepted / partially_accepted / rejected / dead_lettered</code></pre>
+<p>The default ASN source is ERP <code>get_asn_details</code>, but the architecture allows another ASN creation plugin later.</p>
+<h3 id="9-6-state-ownership">9.6 State Ownership</h3>
+<p>Only workflow engine can update <code>documents.current_state</code>.</p>
+<p>Plugins return results only.</p>
+<h2 id="10-ingestion-and-idempotency">10. Ingestion and Idempotency</h2>
+<h3 id="10-1-exact-duplicate">10.1 Exact Duplicate</h3>
+<p>Compare:</p>
+<ul><li><code>business_key</code></li><li><code>payload_hash</code></li></ul>
+<pre><code class="language-text">business_key same + payload_hash same = exact duplicate</code></pre>
+<p>System behavior:</p>
+<ul><li>raw event still stored</li><li>duplicate raw event links to original raw event</li><li>no new document version</li><li>no action side effects</li></ul>
+<h3 id="10-2-same-po-changed-payload">10.2 Same PO, Changed Payload</h3>
+<pre><code class="language-text">business_key same + payload_hash different = changed same-PO event</code></pre>
+<p>Policy:</p>
+<table><thead><tr><th>Current Workflow/Action Position</th><th>Behavior</th></tr></thead><tbody><tr><td>No required side-effect action has started</td><td>Create new document version, revalidate, re-run workflow.</td></tr><tr><td>Required side-effect action is running or completed</td><td>Pause workflow and create manual review.</td></tr><tr><td>Workflow completed</td><td>Do not overwrite. Create <code>changed_same_po_event</code> and manual review.</td></tr><tr><td>Workflow failed/dead-lettered</td><td>Allow ops replay/new version only.</td></tr></tbody></table>
+<p>Material changes:</p>
+<ul><li>item list</li><li>quantities</li><li>prices</li><li>tax</li><li>delivery date</li><li>buyer/supplier GSTIN</li><li>expiry date</li></ul>
+<p>Non-material changes:</p>
+<ul><li>optional contact formatting</li><li>optional custom attributes</li><li>whitespace/format-only changes</li></ul>
+<p>Non-material changes may be stored as new version without re-running actions, if rules allow.</p>
+<h3 id="10-3-layered-idempotency-model">10.3 Layered Idempotency Model</h3>
+<p>Idempotency is layered. One table must not own every duplicate rule.</p>
+<pre><code class="language-text">raw_events
+  stores every webhook/replay, including duplicates
+  uses non-unique dedupe_key + duplicate_of_raw_event_id
+
+documents
+  owns logical business document identity
+  unique(platform_code, seller_id, document_type, external_document_id)
+
+document_versions
+  owns exact payload/version identity
+  unique(document_id, payload_hash)
+
+workflow_runs / workflow_node_runs
+  own execution identity for one document version and node
+  unique(document_version_id, workflow_version_id)
+  unique(workflow_run_id, node_key)
+
+idempotency_keys
+  owns execution claim/reservation only
+  unique(scope, key)
+
+partner_messages
+  owns external request side-effect evidence
+  unique(platform_code, endpoint, idempotency_key)
+
+outbox
+  owns async message publish identity
+  unique(source_type, source_id, event_type)</code></pre>
+<h4 id="example-duplicate-blinkit-po-webhook">Example: Duplicate Blinkit PO Webhook</h4>
+<p>First webhook:</p>
+<pre><code class="language-text">raw_evt_001 stored with dedupe_key=blinkit:purchase_order:PO-1001:h1
+documents insert doc_po_001
+document_versions insert doc_ver_po_001 with payload_hash=h1
+workflow_run created</code></pre>
+<p>Second identical webhook:</p>
+<pre><code class="language-text">raw_evt_002 stored with same dedupe_key
+document worker finds document_versions unique(document_id, payload_hash=h1)
+raw_evt_002.duplicate_of_raw_event_id = raw_evt_001
+raw_evt_002.status = duplicate
+no workflow/action/partner side effect is created</code></pre>
+<p>Changed same PO:</p>
+<pre><code class="language-text">raw_evt_003 stored with dedupe_key=blinkit:purchase_order:PO-1001:h2
+documents unique key resolves existing doc_po_001
+document_versions payload_hash h2 is new
+same-PO change policy decides whether to create v2 workflow or manual review</code></pre>
+<h4 id="example-blinkit-po-ack-retry">Example: Blinkit PO ACK Retry</h4>
+<p>Before calling Blinkit ACK, action worker claims the side effect:</p>
+<pre><code class="language-text">scope = external_action
+key = blinkit.po_ack:doc_po_001:doc_ver_po_001
+status = processing
+first_seen_ref_type = action_attempt
+first_seen_ref_id = act_ack_1</code></pre>
+<p><code>unique(scope, key)</code> allows only one worker to own that ACK. On success:</p>
+<pre><code class="language-text">partner_messages insert:
+  platform_code = blinkit
+  endpoint = /po/acknowledgement
+  idempotency_key = blinkit.po_ack:doc_po_001:doc_ver_po_001
+  status_code = 200
+
+idempotency_keys update:
+  status = completed
+  result_ref_type = partner_message
+  result_ref_id = msg_blinkit_ack</code></pre>
+<p>If a retry happens after success, the worker sees <code>status=completed</code> and returns the existing result without calling Blinkit again.</p>
+<p>If the worker crashes before the external call, stale <code>processing</code> can be reclaimed by retry policy. If the worker times out after sending the external request, retry must use the same idempotency key. If the partner does not support external idempotency or lookup/reconciliation, automatic replay is blocked and routed to manual review.</p>
+<h2 id="11-workflow-configuration-rules-and-approval">11. Workflow Configuration, Rules, and Approval</h2>
+<h3 id="11-1-workflow-is-the-orchestrator">11.1 Workflow Is The Orchestrator</h3>
+<p>Validation is not a separate lifecycle before workflow.</p>
+<p>Correct flow:</p>
+<pre><code class="language-text">raw event
+-&gt; canonical document
+-&gt; workflow run
+   -&gt; validation action node
+   -&gt; destination action node
+   -&gt; ack/action nodes
+   -&gt; ASN/amendment/notification nodes</code></pre>
+<p>Incorrect flow:</p>
+<pre><code class="language-text">canonical document -&gt; validation layer -&gt; workflow</code></pre>
+<p>Every meaningful step after canonical document creation is a workflow node.</p>
+<h3 id="11-1-1-po-workflow-and-asn-workflow-boundaries">11.1.1 PO Workflow and ASN Workflow Boundaries</h3>
+<p>PO and ASN are separate executable workflows because they operate on separate documents and different clocks. The PO workflow is responsible for receiving, validating, syncing, acknowledging, and scheduling ASN tracking. The ASN workflow starts only after the ASN source data is ready and an <code>AdvanceShipmentNotice</code> document/version exists.</p>
+<p>Recommended PO workflow:</p>
+<pre><code class="language-text">workflow_template: Blinkit Purchase Order Default
+document_type: purchase_order
+
+validate_po
+-&gt; erp_punch and/or sheet_sync
+-&gt; blinkit_po_ack
+-&gt; schedule_asn_tracking
+-&gt; po_workflow_complete</code></pre>
+<p>Recommended ASN workflow:</p>
+<pre><code class="language-text">workflow_template: Blinkit ASN Default
+document_type: advance_shipment_notice
+
+validate_asn
+-&gt; optional_asn_approval
+-&gt; blinkit_asn_sync
+-&gt; asn_workflow_complete</code></pre>
+<p>The bridge is not a long-running workflow node:</p>
+<pre><code class="language-text">PO workflow node: schedule_asn_tracking
+-&gt; creates asn_tracking_jobs row
+-&gt; node status = success
+-&gt; PO workflow can complete
+
+ASN tracking worker:
+-&gt; polls source plugin when next_poll_at is due
+-&gt; writes asn_tracking_job_attempts
+-&gt; creates ASN document/version when ready
+-&gt; creates document_links row: ASN generated_from PO
+-&gt; starts ASN workflow</code></pre>
+<p>Workflow graph rules:</p>
+<table><thead><tr><th>Rule</th><th>Reason</th></tr></thead><tbody><tr><td><code>blinkit_asn_sync</code> cannot be in PO workflow.</td><td>It needs an ASN document/version as input.</td></tr><tr><td><code>schedule_asn_tracking</code> can be in PO workflow.</td><td>It is a bounded action that creates durable tracking state.</td></tr><tr><td><code>asn_tracking_jobs</code> is not a workflow node.</td><td>It is scheduler/readiness state for multi-day waiting.</td></tr><tr><td>ASN workflow must start from an ASN document.</td><td>Keeps validation, retries, and partner sync scoped to ASN lifecycle.</td></tr><tr><td>Journey UI can show PO + ASN as one graph.</td><td>Read model can stitch linked workflows without mixing execution ownership.</td></tr></tbody></table>
+<h3 id="11-2-workflow-definition-storage">11.2 Workflow Definition Storage</h3>
+<p>Use executable graph tables:</p>
+<pre><code class="language-text">workflow_templates
+workflow_versions
+workflow_nodes
+workflow_edges
+workflow_layouts
+workflow_assignments</code></pre>
+<p>Published <code>workflow_versions</code> are immutable. UI drag/drop edits create a new draft version, then publish a new version after validation.</p>
+<p><code>workflow_layouts</code> stores only node coordinates and visual metadata. Backend execution uses <code>workflow_nodes</code> and <code>workflow_edges</code>.</p>
+<h3 id="11-3-workflow-inheritance">11.3 Workflow Inheritance</h3>
+<p>Workflow assignment resolution:</p>
+<pre><code class="language-text">seller workflow
+else vendor workflow
+else platform workflow
+else global workflow</code></pre>
+<p>The resolved workflow version is frozen on <code>workflow_runs.workflow_version_id</code>.</p>
+<h3 id="11-4-edge-policy">11.4 Edge Policy</h3>
+<p>The UI can support drag/drop, but backend must validate allowed edges before publish.</p>
+<p>Example allowed edges:</p>
+<pre><code class="language-text">validation action -&gt; destination action
+destination action -&gt; PO ack action
+PO ack action -&gt; start ASN tracking action
+manual review -&gt; destination action</code></pre>
+<p>Example rejected edges:</p>
+<pre><code class="language-text">ASN sync -&gt; PO ack
+PO ack -&gt; validation
+amendment action -&gt; silent original PO mutation</code></pre>
+<p>Node types and plugins declare edge constraints. For example, <code>blinkit.po_ack</code> can require that <code>validation.ruleset_engine</code> appears before it in the DAG.</p>
+<h3 id="11-5-validation-as-action">11.5 Validation As Action</h3>
+<p>Validation is implemented by an action plugin:</p>
+<pre><code class="language-text">validation.ruleset_engine</code></pre>
+<p>Example workflow node:</p>
+<pre><code class="language-json">{
+  &quot;nodeKey&quot;: &quot;validate_po&quot;,
+  &quot;nodeType&quot;: &quot;action&quot;,
+  &quot;pluginId&quot;: &quot;validation.ruleset_engine&quot;,
+  &quot;required&quot;: true,
+  &quot;config&quot;: {
+    &quot;rulesetRef&quot;: &quot;effective&quot;,
+    &quot;documentType&quot;: &quot;purchase_order&quot;,
+    &quot;failOnSeverity&quot;: &quot;error&quot;
+  },
+  &quot;approvalPolicyRef&quot;: &quot;validation_default&quot;,
+  &quot;retryPolicyRef&quot;: &quot;no_retry&quot;
+}</code></pre>
+<p>Validation node result drives workflow edges:</p>
+<pre><code class="language-yaml">edges:
+  - from: validate_po
+    to: erp_punch
+    on_status: success
+
+  - from: validate_po
+    to: manual_review
+    on_status: rejected</code></pre>
+<h3 id="11-6-ruleset-inheritance-and-custom-rules">11.6 Ruleset Inheritance and Custom Rules</h3>
+<section class="graph-card"><div class="graph-title">Ruleset Inheritance and Publishing Flow</div><div class="graph" data-graph="rules"></div></section>
+<p>Ruleset config is inherited and resolved for the validation action plugin. Validation is not a hidden stage before workflow. It is a workflow action node, usually <code>validation.ruleset_engine</code>, and the effective ruleset is the config consumed by that node.</p>
+<p>Inheritance order:</p>
+<pre><code class="language-text">global
+-&gt; platform
+-&gt; vendor/client
+-&gt; seller</code></pre>
+<p>Recommended ownership model:</p>
+<table><thead><tr><th>Level</th><th>Purpose</th><th>Who Configures</th><th>Examples</th></tr></thead><tbody><tr><td>global</td><td>Non-negotiable platform safety and canonical contract rules</td><td>system admin</td><td>PO number required, line items required, duplicate line key rule</td></tr><tr><td>platform</td><td>Partner-specific API/contract rules</td><td>platform admin</td><td>Blinkit facility required, Blinkit date format constraints</td></tr><tr><td>vendor/client</td><td>Business-specific rules for a customer organization</td><td>vendor admin</td><td>SKU must exist in vendor catalog, GST/tax mapping required</td></tr><tr><td>seller</td><td>Seller-specific operating rules and allowed overrides</td><td>seller admin</td><td>minimum order value warning, delivery window override</td></tr></tbody></table>
+<p>There are two separate operations:</p>
+<ol><li>Create a reusable <code>rule_definition</code>.</li><li>Add/configure that rule inside a <code>ruleset_version</code>.</li></ol>
+<p>This distinction matters because a rule definition is the catalog entry, while a ruleset version decides whether that rule is enabled, blocking, locked, or configured differently for a specific scope.</p>
+<p>Rule definition example:</p>
+<pre><code class="language-json">{
+  &quot;ruleKey&quot;: &quot;po_required_fields&quot;,
+  &quot;ruleType&quot;: &quot;field_check&quot;,
+  &quot;documentType&quot;: &quot;purchase_order&quot;,
+  &quot;description&quot;: &quot;PO must contain mandatory canonical fields&quot;,
+  &quot;inputSchema&quot;: {
+    &quot;required&quot;: [&quot;checks&quot;]
+  },
+  &quot;defaultConfig&quot;: {
+    &quot;checks&quot;: [
+      { &quot;field&quot;: &quot;externalId&quot;, &quot;op&quot;: &quot;required&quot; },
+      { &quot;field&quot;: &quot;seller.externalId&quot;, &quot;op&quot;: &quot;required&quot; },
+      { &quot;field&quot;: &quot;lines&quot;, &quot;op&quot;: &quot;min_length&quot;, &quot;value&quot;: 1 }
+    ]
+  }
+}</code></pre>
+<p>PO validation is scoped at two levels:</p>
+<ul><li><code>purchase_order</code>: header or aggregate checks such as PO number, seller, buyer GSTIN, facility, delivery window, and <code>lines</code> minimum length.</li><li><code>purchase_order.line</code>: line-item checks such as item id/SKU presence, UPC format, duplicate line key, positive quantity, unit price bounds, seller item mapping, HSN/tax mapping, and case/UOM compatibility.</li></ul>
+<p>Both scopes run inside the same <code>validate_po</code> action attempt. The rule engine returns one result for the node, but each finding must carry enough location data for ops review, partial correction, and audit.</p>
+<p>Example line-level finding:</p>
+<pre><code class="language-json">{
+  &quot;scope&quot;: &quot;purchase_order.line&quot;,
+  &quot;path&quot;: &quot;lines[3].skuCode&quot;,
+  &quot;lineId&quot;: &quot;PO-1001:BLK-ITEM-7788&quot;,
+  &quot;externalLineRef&quot;: {
+    &quot;platformItemId&quot;: &quot;BLK-ITEM-7788&quot;,
+    &quot;skuCode&quot;: &quot;1000007788&quot;,
+    &quot;upc&quot;: &quot;8901234567890&quot;
+  },
+  &quot;ruleKey&quot;: &quot;sku_mapping_required&quot;,
+  &quot;severity&quot;: &quot;error&quot;,
+  &quot;blocking&quot;: true,
+  &quot;message&quot;: &quot;Blinkit item is not mapped to a seller SKU&quot;
+}</code></pre>
+<p>Ruleset rule example:</p>
+<pre><code class="language-json">{
+  &quot;rulesetVersionId&quot;: &quot;blinkit_po_global_v3&quot;,
+  &quot;ruleKey&quot;: &quot;po_required_fields&quot;,
+  &quot;enabled&quot;: true,
+  &quot;severity&quot;: &quot;error&quot;,
+  &quot;blocking&quot;: true,
+  &quot;locked&quot;: true,
+  &quot;sellerCanDisable&quot;: false,
+  &quot;sellerCanOverrideConfig&quot;: false,
+  &quot;config&quot;: {
+    &quot;checks&quot;: [
+      { &quot;field&quot;: &quot;externalId&quot;, &quot;op&quot;: &quot;required&quot; },
+      { &quot;field&quot;: &quot;seller.externalId&quot;, &quot;op&quot;: &quot;required&quot; },
+      { &quot;field&quot;: &quot;lines&quot;, &quot;op&quot;: &quot;min_length&quot;, &quot;value&quot;: 1 }
+    ]
+  }
+}</code></pre>
+<p>Effective ruleset merge:</p>
+<pre><code class="language-text">effective_ruleset =
+  global base rules
+  + platform additions and allowed overrides
+  + vendor/client additions and allowed overrides
+  + seller additions and allowed overrides
+  - disabled rules only where disable is allowed</code></pre>
+<p>Merge rules:</p>
+<ul><li>lower scope can add new rules if role permits</li><li>lower scope can override severity/config only if parent rule allows override</li><li>lower scope can disable a rule only if <code>seller_can_disable</code> or equivalent scope permission is true</li><li>locked rules cannot be disabled or weakened by lower scopes</li><li>every published effective ruleset must pass schema validation before assignment</li><li>running workflow uses only published immutable ruleset versions, never drafts</li></ul>
+<p>Supported rule types:</p>
+<table><thead><tr><th>Rule Type</th><th>Created From UI</th><th>Requires Engineering Deploy</th><th>Use Case</th></tr></thead><tbody><tr><td><code>field_check</code></td><td>yes</td><td>no</td><td>required fields, min/max length, enum, numeric bounds</td></tr><tr><td><code>reference_check</code></td><td>yes</td><td>no</td><td>SKU exists in seller master, facility mapped, tax code mapped</td></tr><tr><td><code>expression_check</code></td><td>yes, with sandboxed expression language</td><td>no</td><td>delivery date window, minimum order value, quantity relation</td></tr><tr><td><code>code_rule</code></td><td>no</td><td>yes</td><td>complex partner contract, custom parser-aware logic</td></tr></tbody></table>
+<p>Seller-created custom rules should be declarative or sandboxed expression rules. Sellers should not upload arbitrary backend code. Engineering-owned code rules are registered in the plugin/rule registry and then exposed as configurable rule definitions.</p>
+<p>Custom seller rule example:</p>
+<pre><code class="language-yaml">ruleKey: seller_123_min_order_value
+scope: seller
+documentType: purchase_order
+ruleType: expression_check
+severity: warning
+blocking: false
+config:
+  expression: &quot;sum(lines[*].quantity * lines[*].unitPrice) &gt;= params.minValue&quot;
+  params:
+    minValue: 1000</code></pre>
+<p>Example code rule:</p>
+<pre><code class="language-yaml">ruleKey: blinkit_contract_po_rule
+scope: canonical.purchase_order
+ruleType: code_rule
+severity: error
+implementation: rules.blinkit.purchase_order_contract.v1
+params:
+  strictFacilityMapping: true</code></pre>
+<p>Severity behavior:</p>
+<table><thead><tr><th>Severity</th><th>Validation Action Result</th><th>Workflow Behavior</th></tr></thead><tbody><tr><td>info</td><td><code>success</code></td><td>store finding, continue</td></tr><tr><td>warning</td><td><code>success</code></td><td>store finding, continue</td></tr><tr><td>error</td><td><code>rejected</code></td><td>follow rejection edge</td></tr><tr><td>manual</td><td><code>manual_required</code></td><td>route to approval/manual-review action edge</td></tr><tr><td>retryable</td><td><code>retryable_failure</code></td><td>retry policy applies</td></tr></tbody></table>
+<p>Validation result rows are produced by action attempts and reference the workflow node run:</p>
+<pre><code class="language-text">validation_results:
+  workflow_run_id
+  workflow_node_run_id
+  action_attempt_id
+  ruleset_version_id
+  status
+  findings_json</code></pre>
+<p><code>findings_json</code> is an array of structured findings. Each finding uses <code>scope</code>, <code>path</code>, <code>ruleKey</code>, <code>severity</code>, and <code>blocking</code>. Line findings additionally include <code>lineId</code> and partner item identifiers so a failed PO line can be shown, corrected, amended, or replayed without losing the PO-level validation context.</p>
+<p>Rule authoring lifecycle:</p>
+<pre><code class="language-text">create draft rule/ruleset
+-&gt; validate schema and expression safety
+-&gt; validate override permissions
+-&gt; preview effective ruleset for selected seller/document type
+-&gt; run dry-run against sample raw/canonical documents
+-&gt; publish immutable ruleset version
+-&gt; assign at global/platform/vendor/seller level
+-&gt; future workflow runs freeze this version in resolved_config_snapshots</code></pre>
+<p>The UI should expose both views:</p>
+<ul><li>rule catalog: reusable definitions and their allowed config schema</li><li>ruleset builder: the actual inherited effective rule set for a seller/platform/document type</li></ul>
+<h3 id="11-7-approval-as-workflow-action">11.7 Approval as Workflow Action</h3>
+<section class="graph-card"><div class="graph-title">Approval as Explicit Workflow Actions</div><div class="graph" data-graph="approvalPatterns"></div></section>
+<p>Approval is an action plugin, not hidden behavior inside every action worker. The default approval plugin is <code>approval.manual_decision</code>.</p>
+<p>This is the recommended model because it keeps approval visible in workflow diagrams, auditable in node runs/action attempts, configurable from drag/drop workflow UI, and composable with other actions.</p>
+<p>Approval can be placed in three patterns:</p>
+<table><thead><tr><th>Pattern</th><th>Workflow Shape</th><th>Use Case</th></tr></thead><tbody><tr><td>pre-action approval</td><td><code>approval.manual_decision -&gt; erp.punch_po</code></td><td>user must approve before external side effect</td></tr><tr><td>post-action approval</td><td><code>erp.punch_po -&gt; approval.manual_decision -&gt; blinkit.po_ack</code></td><td>system performs internal sync, user approves before partner acknowledgement</td></tr><tr><td>checkpoint approval</td><td><code>action returns manual_required -&gt; approval.manual_decision -&gt; continuation node</code></td><td>action discovered a risky condition and asks for decision before continuing</td></tr></tbody></table>
+<p>Pre-action example:</p>
+<pre><code class="language-yaml">nodes:
+  - nodeKey: approve_before_erp
+    nodeType: action
+    pluginId: approval.manual_decision
+    config:
+      approvalPolicyRef: erp_punch_pre_approval
+      approvalPhase: pre_action
+      targetNodeKey: erp_punch
+
+  - nodeKey: erp_punch
+    nodeType: action
+    pluginId: erp.punch_po
+
+edges:
+  - from: approve_before_erp
+    to: erp_punch
+    on_status: approved
+  - from: approve_before_erp
+    to: rejected_terminal
+    on_status: rejected</code></pre>
+<p>Post-action example:</p>
+<pre><code class="language-yaml">nodes:
+  - nodeKey: erp_punch
+    nodeType: action
+    pluginId: erp.punch_po
+
+  - nodeKey: approve_before_ack
+    nodeType: action
+    pluginId: approval.manual_decision
+    config:
+      approvalPolicyRef: blinkit_ack_post_erp_approval
+      approvalPhase: post_action
+      targetNodeKey: blinkit_po_ack
+
+  - nodeKey: blinkit_po_ack
+    nodeType: action
+    pluginId: blinkit.po_ack
+
+edges:
+  - from: erp_punch
+    to: approve_before_ack
+    on_status: success
+  - from: approve_before_ack
+    to: blinkit_po_ack
+    on_status: approved</code></pre>
+<p>Checkpoint/mid-action pattern:</p>
+<pre><code class="language-text">action starts
+-&gt; plugin detects condition requiring decision
+-&gt; action returns manual_required with checkpoint payload
+-&gt; workflow routes to approval.manual_decision
+-&gt; approver decides
+-&gt; workflow routes to continuation action with approved decision payload</code></pre>
+<p>The worker must not hold an external action open for days waiting for approval. &quot;Mid-action&quot; means a checkpoint in the workflow graph, not a long-running in-memory function call.</p>
+<p>Checkpoint example:</p>
+<pre><code class="language-yaml">edges:
+  - from: erp_punch
+    to: approve_erp_exception
+    on_status: manual_required
+
+  - from: approve_erp_exception
+    to: erp_punch_continue
+    on_status: approved
+
+  - from: approve_erp_exception
+    to: erp_punch_cancelled
+    on_status: rejected</code></pre>
+<p>Approval policy inheritance:</p>
+<pre><code class="language-text">global
+-&gt; platform
+-&gt; vendor/client
+-&gt; seller</code></pre>
+<p>Approval policy example:</p>
+<pre><code class="language-yaml">approvalPolicies:
+  erp_punch_pre_approval:
+    pluginId: approval.manual_decision
+    required: true
+    defaultPhase: pre_action
+    approverRole: seller_ops_approver
+    timeout: PT24H
+    sellerCanOverride: true
+    allowedOverrides:
+      - required
+      - approverRole
+      - timeout
+
+  blinkit_ack_post_erp_approval:
+    pluginId: approval.manual_decision
+    required: false
+    defaultPhase: post_action
+    approverRole: seller_admin
+    timeout: PT12H
+    sellerCanOverride: true</code></pre>
+<p>UI behavior:</p>
+<ul><li>action plugins declare default approval posture in plugin capability metadata</li><li>UI can show this as an &quot;approval required&quot; toggle on any action node</li><li>enabling the toggle inserts or reveals an <code>approval.manual_decision</code> node</li><li>disabling the toggle removes or bypasses that approval node only when policy allows</li><li>advanced UI can let users drag the approval node before or after the target action</li><li>checkpoint approvals are declared as edges from action result status such as <code>manual_required</code></li></ul>
+<p>Seller users can update approval behavior only when inherited policy allows override. The published workflow graph must still validate that approval nodes have terminal paths for approved, rejected, expired, and cancelled decisions.</p>
+<h3 id="11-8-effective-config-snapshot">11.8 Effective Config Snapshot</h3>
+<p>At workflow run creation, freeze:</p>
+<pre><code class="language-text">workflow_version_id
+ruleset_version_id
+action_plugin_config_versions
+approval_policy_versions
+retry_policy_versions
+plugin_versions</code></pre>
+<p>This snapshot proves which global/platform/vendor/seller configs were used for each PO.</p>
+<h3 id="11-9-config-resolution-algorithm">11.9 Config Resolution Algorithm</h3>
+<p>All effective config is resolved before workflow execution and written to <code>resolved_config_snapshots</code>.</p>
+<p>Resolution order:</p>
+<pre><code class="language-text">global default
+-&gt; platform override
+-&gt; vendor/client override
+-&gt; seller override</code></pre>
+<p>Rules:</p>
+<ul><li>higher scope can define defaults</li><li>lower scope can override only if <code>seller_can_override</code> or equivalent policy allows it</li><li>locked rules cannot be disabled by seller config</li><li>published config only; drafts are ignored at runtime</li><li>effective config is frozen per workflow run</li><li>old workflow runs never see newer config changes</li></ul>
+<p>Pseudo-code:</p>
+<pre><code class="language-text">resolveEffectiveConfig(platform, vendor, seller, documentType):
+  workflow = findAssignment(seller) || findAssignment(vendor) || findAssignment(platform) || findAssignment(global)
+  ruleset = mergeRulesets(global, platform, vendor, seller)
+  actionConfigs = mergeActionConfigsForWorkflowNodes(workflow.nodes)
+  approvalPolicies = mergeApprovalPoliciesForApprovalActionNodes(workflow.nodes)
+  retryPolicies = mergeRetryPoliciesForWorkflowNodes(workflow.nodes)
+  validateNoLockedOverrideViolation(ruleset, approvalPolicies, actionConfigs)
+  return snapshot(workflow, ruleset, actionConfigs, approvalPolicies, retryPolicies)</code></pre>
+<p>Snapshot example:</p>
+<pre><code class="language-json">{
+  &quot;workflowVersionId&quot;: &quot;wf_blinkit_po_v4&quot;,
+  &quot;workflowResolvedFrom&quot;: &quot;seller&quot;,
+  &quot;rulesetVersionId&quot;: &quot;rules_seller_123_v7&quot;,
+  &quot;rulesetResolvedFrom&quot;: [&quot;global&quot;, &quot;platform&quot;, &quot;vendor&quot;, &quot;seller&quot;],
+  &quot;actions&quot;: {
+    &quot;validate_po&quot;: {
+      &quot;pluginId&quot;: &quot;validation.ruleset_engine&quot;,
+      &quot;pluginConfigVersion&quot;: &quot;validation_global_v3&quot;,
+      &quot;retryPolicyVersion&quot;: &quot;no_retry_v1&quot;
+    },
+    &quot;approve_before_erp&quot;: {
+      &quot;pluginId&quot;: &quot;approval.manual_decision&quot;,
+      &quot;approvalPolicyVersion&quot;: &quot;approval_seller_123_v2&quot;,
+      &quot;approvalPhase&quot;: &quot;pre_action&quot;,
+      &quot;targetNodeKey&quot;: &quot;erp_punch&quot;,
+      &quot;approvalResolvedFrom&quot;: &quot;seller&quot;
+    },
+    &quot;erp_punch&quot;: {
+      &quot;pluginId&quot;: &quot;erp.punch_po&quot;,
+      &quot;pluginConfigVersion&quot;: &quot;erp_seller_123_v5&quot;,
+      &quot;retryPolicyVersion&quot;: &quot;standard_api_retry_v2&quot;
+    }
+  }
+}</code></pre>
+<h3 id="11-10-workflow-graph-validation-rules">11.10 Workflow Graph Validation Rules</h3>
+<p>Publishing a workflow version must run these checks:</p>
+<pre><code class="language-text">graph_is_acyclic
+has_single_or_declared_start_nodes
+all_nodes_reachable_from_start
+all_required_nodes_have_terminal_path
+all_edges_reference_existing_nodes
+all_edge_statuses_valid_for_source_node_type
+all_plugin_ids_enabled
+all_plugin_constraints_satisfied
+all_approval_action_policy_refs_resolve
+all_retry_policy_refs_resolve
+all_condition_expr_parse
+layout_nodes_match_executable_nodes</code></pre>
+<p>PO workflow minimum policy:</p>
+<pre><code class="language-text">must include validation.ruleset_engine unless admin waiver exists
+must include at least one terminal path for validation rejected
+must not allow blinkit.po_ack before validation action
+must not allow ASN sync before ASN canonical document exists
+must not silently mutate original PO after external side effect</code></pre>
+<h2 id="12-action-plugin-design">12. Action Plugin Design</h2>
+<p>Action plugins execute workflow steps. A step may be a side effect, validation, enrichment, ASN creation, notification, or outbound partner API call.</p>
+<p>They do not:</p>
+<ul><li>decide document state directly</li><li>write state transitions</li><li>bypass idempotency</li></ul>
+<p>Interface:</p>
+<pre><code class="language-text">capabilities()
+prepare(context)
+execute(request)
+interpret(response)
+compensate(context) optional</code></pre>
+<h3 id="12-1-initial-action-plugins">12.1 Initial Action Plugins</h3>
+<p>ERP plugin:</p>
+<ul><li><code>punch_po</code></li><li><code>get_asn_details</code></li></ul>
+<p>Validation plugins/rulesets:</p>
+<ul><li><code>validation.partner_contract.blinkit_po</code></li><li><code>validation.business.purchase_order</code></li><li><code>validation.action_preflight.erp_punch</code></li></ul>
+<p>Blinkit platform plugin/actions:</p>
+<ul><li>parse inbound PO</li><li>send PO acknowledgement</li><li>send ASN</li><li>send amendment</li></ul>
+<p>Notification plugin:</p>
+<ul><li>Slack</li><li>WhatsApp</li><li>sheet export</li></ul>
+<p>Sheet plugin:</p>
+<ul><li><code>sheet.sync_po</code></li><li><code>sheet.sync_asn_status</code></li></ul>
+<p>Approval plugin:</p>
+<ul><li><code>approval.manual_decision</code></li><li><code>approval.workflow_publish</code></li><li><code>approval.exception_checkpoint</code></li></ul>
+<h3 id="12-2-action-attempt-status">12.2 Action Attempt Status</h3>
+<pre><code class="language-text">pending
+waiting
+running
+success
+partial_success
+approved
+rejected
+expired
+retryable_failure
+permanent_failure
+retry_scheduled
+dead_lettered
+cancelled</code></pre>
+<h3 id="12-3-plugin-capability-contract">12.3 Plugin Capability Contract</h3>
+<p>Each plugin must expose capabilities so workflow publish validation can reason about it.</p>
+<pre><code class="language-json">{
+  &quot;pluginId&quot;: &quot;blinkit.po_ack&quot;,
+  &quot;version&quot;: &quot;1.0.0&quot;,
+  &quot;nodeType&quot;: &quot;action&quot;,
+  &quot;documentTypes&quot;: [&quot;purchase_order&quot;],
+  &quot;resultStatuses&quot;: [&quot;success&quot;, &quot;rejected&quot;, &quot;retryable_failure&quot;, &quot;permanent_failure&quot;],
+  &quot;defaultApproval&quot;: {
+    &quot;mode&quot;: &quot;none&quot;,
+    &quot;allowedPhases&quot;: [&quot;pre_action&quot;, &quot;post_action&quot;, &quot;checkpoint&quot;]
+  },
+  &quot;idempotency&quot;: {
+    &quot;supported&quot;: true,
+    &quot;keySource&quot;: &quot;action_attempt_id&quot;
+  },
+  &quot;edgeConstraints&quot;: {
+    &quot;allowedAfterPlugins&quot;: [&quot;validation.ruleset_engine&quot;, &quot;erp.punch_po&quot;, &quot;sheet.sync_po&quot;],
+    &quot;notAllowedBeforePlugins&quot;: [&quot;validation.ruleset_engine&quot;]
+  },
+  &quot;configSchema&quot;: {
+    &quot;type&quot;: &quot;object&quot;,
+    &quot;required&quot;: [&quot;endpoint&quot;, &quot;credentialRef&quot;]
+  }
+}</code></pre>
+<h3 id="12-4-plugin-execution-context">12.4 Plugin Execution Context</h3>
+<p>Action worker passes a frozen context:</p>
+<pre><code class="language-json">{
+  &quot;traceId&quot;: &quot;uuid&quot;,
+  &quot;document&quot;: {
+    &quot;documentId&quot;: &quot;uuid&quot;,
+    &quot;documentVersionId&quot;: &quot;uuid&quot;,
+    &quot;documentType&quot;: &quot;purchase_order&quot;,
+    &quot;canonical&quot;: {}
+  },
+  &quot;workflow&quot;: {
+    &quot;workflowRunId&quot;: &quot;uuid&quot;,
+    &quot;workflowVersionId&quot;: &quot;wf_blinkit_po_v4&quot;,
+    &quot;nodeKey&quot;: &quot;erp_punch&quot;,
+    &quot;workflowNodeRunId&quot;: &quot;uuid&quot;
+  },
+  &quot;action&quot;: {
+    &quot;actionAttemptId&quot;: &quot;uuid&quot;,
+    &quot;attemptNo&quot;: 1,
+    &quot;idempotencyKey&quot;: &quot;uuid&quot;
+  },
+  &quot;config&quot;: {
+    &quot;pluginConfig&quot;: {},
+    &quot;secrets&quot;: {
+      &quot;credentialRef&quot;: &quot;vault://...&quot;
+    },
+    &quot;resolvedConfigSnapshotId&quot;: &quot;uuid&quot;
+  }
+}</code></pre>
+<h3 id="12-5-normalized-plugin-result">12.5 Normalized Plugin Result</h3>
+<p>All plugins return the same result shape:</p>
+<pre><code class="language-json">{
+  &quot;status&quot;: &quot;success&quot;,
+  &quot;externalReference&quot;: &quot;ERP-PO-9988&quot;,
+  &quot;errors&quot;: [],
+  &quot;warnings&quot;: [],
+  &quot;data&quot;: {},
+  &quot;rawRequestRef&quot;: &quot;s3://...&quot;,
+  &quot;rawResponseRef&quot;: &quot;s3://...&quot;,
+  &quot;retryAfterSeconds&quot;: null
+}</code></pre>
+<p>Allowed statuses:</p>
+<pre><code class="language-text">success
+partial_success
+rejected
+retryable_failure
+permanent_failure</code></pre>
+<h3 id="12-6-error-taxonomy">12.6 Error Taxonomy</h3>
+<p>Errors must be normalized before workflow consumes them.</p>
+<pre><code class="language-text">VALIDATION_ERROR
+CONFIG_MISSING
+AUTH_FAILED
+RATE_LIMITED
+EXTERNAL_TIMEOUT
+EXTERNAL_5XX
+EXTERNAL_4XX_REJECTED
+MAPPING_MISSING
+IDEMPOTENCY_CONFLICT
+PAYLOAD_BUILD_FAILED
+UNKNOWN_PLUGIN_ERROR</code></pre>
+<p>Retryability:</p>
+<table><thead><tr><th>Error</th><th>Default Behavior</th></tr></thead><tbody><tr><td><code>RATE_LIMITED</code></td><td>retry with backoff</td></tr><tr><td><code>EXTERNAL_TIMEOUT</code></td><td>retry</td></tr><tr><td><code>EXTERNAL_5XX</code></td><td>retry</td></tr><tr><td><code>AUTH_FAILED</code></td><td>permanent failure, ops review</td></tr><tr><td><code>CONFIG_MISSING</code></td><td>blocked/manual review</td></tr><tr><td><code>MAPPING_MISSING</code></td><td>rejected or manual review</td></tr><tr><td><code>VALIDATION_ERROR</code></td><td>rejected edge</td></tr><tr><td><code>IDEMPOTENCY_CONFLICT</code></td><td>manual review</td></tr></tbody></table>
+<h3 id="12-7-idempotency-requirements-per-plugin">12.7 Idempotency Requirements Per Plugin</h3>
+<p>Every side-effect plugin must support one of:</p>
+<ol><li>External idempotency key.</li><li>External lookup/reconciliation by reference.</li><li>Internal guard that prevents duplicate attempt execution.</li></ol>
+<p>Retry must use the same:</p>
+<pre><code class="language-text">action_attempt_id
+idempotency_key
+external_reference when available</code></pre>
+<p>If a plugin cannot provide safe retry behavior, workflow must mark it as requiring manual approval or manual replay.</p>
+<h2 id="13-rabbitmq-design">13. RabbitMQ Design</h2>
+<p>Queues:</p>
+<pre><code class="language-text">edi.ingestion
+edi.actions.erp
+edi.actions.sheet
+edi.actions.partner
+edi.actions.validation
+edi.actions.notification
+edi.asn.tracking.due
+edi.retry
+edi.dlq</code></pre>
+<p>Recommended routing:</p>
+<ul><li>ingestion messages carry <code>aggregate_key</code></li><li>action messages carry <code>action_attempt_id</code></li><li>ASN tracking messages carry <code>asn_tracking_job_id</code></li><li>retries carry <code>next_retry_at</code></li></ul>
+<p>Ordering strategy:</p>
+<ol><li>Mandatory: Postgres row lock / optimistic version per aggregate.</li><li>Optional: RabbitMQ consistent hash exchange by <code>aggregate_key</code>.</li></ol>
+<p>DB lock is required because RabbitMQ competing consumers do not alone guarantee per-PO state safety.</p>
+<h3 id="13-1-queue-topology">13.1 Queue Topology</h3>
+<p>Recommended topology:</p>
+<pre><code class="language-text">exchange edi.events.topic
+exchange edi.actions.topic
+exchange edi.retry.topic
+exchange edi.dlx.topic
+
+queue edi.ingestion
+queue edi.actions.validation
+queue edi.actions.erp
+queue edi.actions.sheet
+queue edi.actions.partner
+queue edi.actions.notification
+queue edi.asn.tracking.due
+queue edi.retry
+queue edi.dlq</code></pre>
+<p>Routing examples:</p>
+<pre><code class="language-text">ingestion.blinkit.purchase_order.created -&gt; edi.ingestion
+action.validation.ruleset_engine -&gt; edi.actions.validation
+action.erp.punch_po -&gt; edi.actions.erp
+action.sheet.sync_po -&gt; edi.actions.sheet
+action.partner.blinkit.po_ack -&gt; edi.actions.partner
+action.partner.blinkit.asn_sync -&gt; edi.actions.partner
+action.notification.slack -&gt; edi.actions.notification
+asn_tracking.poll.erp -&gt; edi.asn.tracking.due</code></pre>
+<h3 id="13-2-message-contracts">13.2 Message Contracts</h3>
+<p>Ingestion message:</p>
+<pre><code class="language-json">{
+  &quot;messageType&quot;: &quot;ingestion&quot;,
+  &quot;rawEventId&quot;: &quot;uuid&quot;,
+  &quot;aggregateKey&quot;: &quot;blinkit:seller_123:purchase_order:PO-1001&quot;,
+  &quot;platformCode&quot;: &quot;blinkit&quot;,
+  &quot;sellerId&quot;: &quot;seller_123&quot;,
+  &quot;documentType&quot;: &quot;purchase_order&quot;,
+  &quot;traceId&quot;: &quot;uuid&quot;,
+  &quot;attempt&quot;: 1
+}</code></pre>
+<p>Action message:</p>
+<pre><code class="language-json">{
+  &quot;messageType&quot;: &quot;action&quot;,
+  &quot;workflowRunId&quot;: &quot;uuid&quot;,
+  &quot;workflowNodeRunId&quot;: &quot;uuid&quot;,
+  &quot;actionAttemptId&quot;: &quot;uuid&quot;,
+  &quot;pluginId&quot;: &quot;validation.ruleset_engine&quot;,
+  &quot;aggregateKey&quot;: &quot;blinkit:seller_123:purchase_order:PO-1001&quot;,
+  &quot;traceId&quot;: &quot;uuid&quot;,
+  &quot;attempt&quot;: 1
+}</code></pre>
+<p>Retry message:</p>
+<pre><code class="language-json">{
+  &quot;messageType&quot;: &quot;retry&quot;,
+  &quot;targetQueue&quot;: &quot;edi.actions.partner&quot;,
+  &quot;actionAttemptId&quot;: &quot;uuid&quot;,
+  &quot;availableAt&quot;: &quot;2026-04-29T10:10:00Z&quot;,
+  &quot;reason&quot;: &quot;HTTP_500&quot;
+}</code></pre>
+<p>DLQ message:</p>
+<pre><code class="language-json">{
+  &quot;messageType&quot;: &quot;dead_letter&quot;,
+  &quot;sourceQueue&quot;: &quot;edi.actions.partner&quot;,
+  &quot;rawEventId&quot;: &quot;uuid&quot;,
+  &quot;actionAttemptId&quot;: &quot;uuid&quot;,
+  &quot;traceId&quot;: &quot;uuid&quot;,
+  &quot;failureReason&quot;: &quot;max_attempts_exceeded&quot;
+}</code></pre>
+<h3 id="13-3-worker-safety-rules">13.3 Worker Safety Rules</h3>
+<p>Workers must:</p>
+<ul><li>load the latest DB row before acting</li><li>verify node/action status is still claimable</li><li>take row-level lock or use optimistic version</li><li>reuse the same idempotency key on retries</li><li>write request/response refs before returning result</li><li>never mutate document state directly</li></ul>
+<p>Workflow engine must:</p>
+<ul><li>evaluate graph edge after node result</li><li>create next <code>workflow_node_runs</code></li><li>create <code>outbox</code> rows transactionally</li><li>update document state only from workflow state</li><li>append <code>state_transitions</code></li></ul>
+<h3 id="13-4-workflow-publish-validation">13.4 Workflow Publish Validation</h3>
+<p>Before a workflow version can be published:</p>
+<ul><li>graph must be acyclic</li><li>all node keys must be unique</li><li>all edges must reference existing nodes</li><li>all required plugins must exist and be enabled</li><li>each edge must pass node-type and plugin constraints</li><li>terminal path must exist for success and failure branches</li><li>approval policies must resolve for every action node</li><li>retry policies must resolve for every retryable node</li><li>validation action must exist for PO workflows unless explicitly waived by admin policy</li><li>UI layout must reference only nodes in the executable graph</li></ul>
+<p>Publish creates:</p>
+<pre><code class="language-text">workflow_versions.status = published
+definition_hash
+workflow_assignment if scope assignment changed
+audit_log entry</code></pre>
+<h2 id="14-keda-scaling">14. KEDA Scaling</h2>
+<p>Services:</p>
+<ul><li>API service: Kubernetes Deployment, HPA by CPU/RPS.</li><li>document worker: KEDA scaled by <code>edi.ingestion</code> queue depth.</li><li>action worker by plugin/type: KEDA scaled by queues such as <code>edi.actions.erp</code>, <code>edi.actions.sheet</code>, <code>edi.actions.partner</code>.</li><li>notification worker: KEDA scaled by <code>edi.actions.notification</code>.</li><li>ASN poller: KEDA Cron ScaledJob or scheduled worker.</li><li>retry scheduler: periodic worker.</li><li>outbox dispatcher: Deployment or KEDA worker.</li></ul>
+<p>Guardrails:</p>
+<ul><li>per-plugin concurrency limits</li><li>per-platform-account rate limits</li><li>circuit breaker for failing external APIs</li><li>DLQ poison messages after max attempts</li></ul>
+<h2 id="15-asn-tracking-and-asn-workflow">15. ASN Tracking and ASN Workflow</h2>
+<section class="graph-card"><div class="graph-title">PO Workflow to ASN Workflow Bridge</div><div class="graph" data-graph="asnWorkflow"></div></section>
+<p>ASN is a separate linked workflow and can happen days after the PO webhook is processed. The PO workflow should not stay open for that multi-day wait. The PO workflow runs a short <code>schedule_asn_tracking</code> action, which creates <code>asn_tracking_jobs</code> and completes. The ASN poller later calls a configured ASN source plugin. Initially that source plugin is ERP <code>get_asn_details</code>.</p>
+<p>The UI should still show one PO-to-ASN journey graph by joining PO document, PO workflow, ASN tracking job, ASN document, ASN workflow, action attempts, and partner messages.</p>
+<h3 id="15-1-asn-tracking-job-creation">15.1 ASN Tracking Job Creation</h3>
+<p>Create an ASN tracking job when the configured PO workflow reaches the <code>schedule_asn_tracking</code> node. For a seller using ERP, this is usually after required PO actions and PO ack are complete. For another seller, it may be after sheet sync or manual acceptance.</p>
+<pre><code class="language-text">PO workflow:
+  validate_po
+  -&gt; erp_punch or sheet_sync
+  -&gt; po_ack
+  -&gt; schedule_asn_tracking
+  -&gt; PO workflow complete
+
+schedule_asn_tracking action creates asn_tracking_job:
+  po_document_id
+  po_document_version_id
+  po_number
+  seller_id
+  source_plugin_id = erp.get_asn_details or configured source
+  status = waiting
+  next_poll_at = delivery_date based schedule or configured delay
+  max_poll_until = delivery_date + configured window</code></pre>
+<h3 id="15-2-polling-flow">15.2 Polling Flow</h3>
+<pre><code class="language-diagram-source">flowchart LR
+  PO[&quot;PO workflow\nschedule_asn_tracking&quot;] --&gt; Job[&quot;asn_tracking_jobs\nwaiting&quot;]
+  Job --&gt; Due[&quot;asn_tracking_job due&quot;]
+  Due --&gt; CallERP[&quot;ASN source plugin\nERP get_asn_details by default&quot;]
+  CallERP --&gt; Attempt[&quot;asn_tracking_job_attempts&quot;]
+  Attempt --&gt; NotReady[&quot;not_ready&quot;]
+  NotReady --&gt; Reschedule[&quot;next_poll_at = backoff&quot;]
+  Attempt --&gt; Incomplete[&quot;data_incomplete&quot;]
+  Incomplete --&gt; Review[&quot;ops review or reschedule&quot;]
+  Attempt --&gt; Ready[&quot;ASN data ready&quot;]
+  Ready --&gt; Canonical[&quot;Create canonical ASN document/version&quot;]
+  Canonical --&gt; Link[&quot;document_links\nASN generated_from PO&quot;]
+  Canonical --&gt; Workflow[&quot;ASN workflow run&quot;]
+  Workflow --&gt; Validate[&quot;Validation action\nvalidation.ruleset_engine&quot;]
+  Validate --&gt; Send[&quot;ASN sync action\npartnersbiz&quot;]
+  Send --&gt; Terminal[&quot;accepted / partially_accepted / rejected&quot;]</code></pre>
+<h3 id="15-3-asn-source-plugin-assumption">15.3 ASN Source Plugin Assumption</h3>
+<p>Default source is ERP <code>get_asn_details</code>, but this is invoked by the tracking job executor, not as a multi-day workflow node. Another seller could later use a file import, API, or UI-based ASN creation plugin.</p>
+<p>ERP returns all fields needed by Blinkit ASN API:</p>
+<ul><li>invoice details</li><li>delivery details</li><li>supplier/buyer GST</li><li>shipment details</li><li>tax summary</li><li>item batches</li><li>quantities</li><li>prices</li><li>expiry/mfg/shelf life</li><li>package/case data</li><li>traceability codes</li></ul>
+<p>If mandatory ASN fields are missing, the tracking job becomes <code>data_incomplete</code> and the job attempt stores the source response refs. Once corrected or repolled successfully, the system creates the ASN document and starts the ASN workflow.</p>
+<h3 id="15-4-two-workflows-one-journey-view">15.4 Two Workflows, One Journey View</h3>
+<p>Executable workflows stay scoped to one document:</p>
+<pre><code class="language-text">PurchaseOrder document -&gt; PO workflow run
+AdvanceShipmentNotice document -&gt; ASN workflow run</code></pre>
+<p>The business journey is rendered by joining:</p>
+<pre><code class="language-text">purchase_order documents
+-&gt; PO workflow_runs / workflow_node_runs / action_attempts
+-&gt; asn_tracking_jobs / asn_tracking_job_attempts
+-&gt; advance_shipment_notice documents
+-&gt; document_links where ASN generated_from PO
+-&gt; ASN workflow_runs / workflow_node_runs / action_attempts
+-&gt; partner_messages for PO ack, ASN sync, and API responses</code></pre>
+<p>This gives clean execution boundaries while still giving operators one graph from PO received to ASN accepted.</p>
+<h3 id="15-5-asn-config-vs-state">15.5 ASN Config vs State</h3>
+<p>ASN creation combines stable onboarding config with PO/ERP-specific state. The system must freeze that combination for audit.</p>
+<table><thead><tr><th>Concern</th><th>Source</th></tr></thead><tbody><tr><td>Vendor/customer identity</td><td><code>vendors</code></td></tr><tr><td>Blinkit supplier/account identity</td><td><code>platform_accounts</code> maps Blinkit <code>tenant</code>, <code>supplier_details.id</code>, GSTIN, and outlet to internal <code>vendor_id</code> + <code>seller_id</code></td></tr><tr><td>Seller legal/tax identity</td><td><code>sellers</code>, <code>seller_tax_profiles</code></td></tr><tr><td>Warehouse and ship-from address</td><td><code>seller_locations</code></td></tr><tr><td>Warehouse/billing contacts</td><td><code>seller_contacts</code></td></tr><tr><td>Brand identity</td><td>Existing platform <code>brands</code> table, referenced by <code>seller_item_mappings.brand_id</code></td></tr><tr><td>SKU, brand, UPC, HSN, UOM, case defaults</td><td><code>seller_item_mappings</code></td></tr><tr><td>ASN source and poll policy</td><td><code>asn_source_configs</code> and <code>resolved_config_snapshots</code></td></tr><tr><td>PO number, ordered lines, buyer/facility</td><td>PO <code>document_versions.canonical_json</code></td></tr><tr><td>Invoice, shipped qty, batch, expiry, packages</td><td><code>asn_tracking_job_attempts.response_ref</code> from ERP/file/UI source</td></tr><tr><td>Final canonical ASN</td><td>ASN <code>document_versions.canonical_json</code></td></tr><tr><td>Config/state rows used to build ASN</td><td><code>asn_build_snapshots</code></td></tr></tbody></table>
+<p><code>asn_build_snapshots</code> is mandatory for production audit. It records the PO version, ASN source attempt, seller location, tax profile, item mappings, brand ids resolved through those mappings, ASN source config, and output hash used to create the ASN version.</p>
+<h2 id="16-po-amendment">16. PO Amendment</h2>
+<p>Amendment is created by user in our UI, not ERP.</p>
+<p>Flow:</p>
+<pre><code class="language-text">user creates amendment
+-&gt; canonical POAmendment document
+-&gt; validate item/upc/mrp/uom/po_numbers
+-&gt; send partnersbiz PO amendment API
+-&gt; store response
+-&gt; link amendment to affected PO(s)</code></pre>
+<p>Storage:</p>
+<pre><code class="language-text">documents: amendment document
+document_links: amendment -&gt; affected purchase_order(s)
+partner_messages: amendment request/response</code></pre>
+<p>Original PO version is not overwritten. Current view can show effective amendment overlays.</p>
+<h2 id="17-event-flows">17. Event Flows</h2>
+<h3 id="17-1-happy-path-po">17.1 Happy Path PO</h3>
+<pre><code class="language-text">Blinkit PO webhook
+-&gt; raw_event stored
+-&gt; idempotency created
+-&gt; ingestion queued
+-&gt; Blinkit plugin parses
+-&gt; canonical PO created
+-&gt; workflow run created from seller config
+-&gt; configured required actions run
+   examples:
+     validation action plugin
+     ERP punch OR sheet sync OR both
+     notification plugin
+-&gt; PO ack action created if configured
+-&gt; partnersbiz ack succeeds
+-&gt; workflow completed
+-&gt; ASN tracking job created if configured</code></pre>
+<p>Data flow:</p>
+<pre><code class="language-text">raw_events.raw_payload_ref
+-&gt; partner plugin parse/map
+-&gt; documents(purchase_order)
+-&gt; document_versions.canonical_json
+-&gt; workflow_runs(PO)
+-&gt; workflow_node_runs(validate_po, erp_punch, sheet_sync, blinkit_po_ack, schedule_asn_tracking)
+-&gt; action_attempts for each node
+-&gt; partner_messages for ERP/sheet/Blinkit request-response evidence
+-&gt; asn_tracking_jobs linked to PO document/version</code></pre>
+<h3 id="17-2-duplicate-po">17.2 Duplicate PO</h3>
+<pre><code class="language-text">duplicate webhook
+-&gt; raw_event stored
+-&gt; same business_key + payload_hash detected
+-&gt; set duplicate_of_raw_event_id and mark duplicate
+-&gt; no document/action side effect</code></pre>
+<h3 id="17-3-changed-po-after-workflow-completion">17.3 Changed PO After Workflow Completion</h3>
+<pre><code class="language-text">same PO number, different payload
+-&gt; raw_event stored
+-&gt; changed payload detected
+-&gt; workflow already completed
+-&gt; create changed_po_event
+-&gt; manual review
+-&gt; optional UI-created amendment</code></pre>
+<h3 id="17-4-required-action-timeout">17.4 Required Action Timeout</h3>
+<pre><code class="language-text">required action running
+-&gt; timeout
+-&gt; action_attempt retryable_failure
+-&gt; retry_scheduled
+-&gt; retry with same idempotency key
+-&gt; max attempts exceeded -&gt; DLQ</code></pre>
+<h3 id="17-5-po-ack-failure">17.5 PO Ack Failure</h3>
+<pre><code class="language-text">required prior actions succeeded
+-&gt; partnersbiz ack fails
+-&gt; workflow remains waiting on PO ack action
+-&gt; retry only PO ack action
+-&gt; no re-run of prior successful actions</code></pre>
+<h3 id="17-6-asn-data-not-ready">17.6 ASN Data Not Ready</h3>
+<pre><code class="language-text">asn_tracking_job due
+-&gt; ERP get_asn_details returns not_ready
+-&gt; update poll_attempt_count
+-&gt; next_poll_at = later
+-&gt; no failure unless max_poll_until exceeded</code></pre>
+<p>Data flow:</p>
+<pre><code class="language-text">edi.asn.tracking.due message
+-&gt; asn_tracking_jobs row locked
+-&gt; asn_tracking_job_attempts row inserted
+-&gt; ERP/source request_ref and response_ref stored in object store
+-&gt; asn_tracking_jobs.attempt_count incremented
+-&gt; status = not_ready
+-&gt; next_poll_at updated</code></pre>
+<h3 id="17-7-asn-partial-acceptance">17.7 ASN Partial Acceptance</h3>
+<pre><code class="language-text">ASN sent
+-&gt; partnersbiz returns PARTIALLY_ACCEPTED
+-&gt; state partially_accepted
+-&gt; item-level errors stored
+-&gt; ops review or amendment/correction</code></pre>
+<h3 id="17-8-asn-ready-end-to-end-flow">17.8 ASN Ready End-to-End Flow</h3>
+<pre><code class="language-text">asn_tracking_job due
+-&gt; ASN source plugin returns ready
+-&gt; asn_tracking_job_attempts row stores response_ref
+-&gt; canonical ASN payload built
+-&gt; documents insert document_type = advance_shipment_notice
+-&gt; document_versions insert canonical_json = ASN payload
+-&gt; document_links insert ASN generated_from PO
+-&gt; workflow_runs insert ASN workflow
+-&gt; workflow_node_runs insert validate_asn
+-&gt; validation.ruleset_engine validates ASN
+-&gt; blinkit.asn_sync action builds outbound payload
+-&gt; partner_messages stores ASN request_ref and response_ref
+-&gt; ASN workflow completed
+-&gt; asn_tracking_jobs status = created_asn</code></pre>
+<p>Payload locations:</p>
+<table><thead><tr><th>Payload</th><th>Storage</th></tr></thead><tbody><tr><td>Original PO webhook</td><td><code>raw_events.raw_payload_ref</code> object-store URI</td></tr><tr><td>Canonical PO</td><td><code>document_versions.canonical_json</code> for PO version</td></tr><tr><td>ERP ASN source response</td><td><code>asn_tracking_job_attempts.response_ref</code> object-store URI</td></tr><tr><td>Canonical ASN</td><td><code>document_versions.canonical_json</code> for ASN version</td></tr><tr><td>Blinkit ASN request</td><td><code>action_attempts.request_ref</code> and <code>partner_messages.request_ref</code></td></tr><tr><td>Blinkit ASN response</td><td><code>action_attempts.response_ref</code> and <code>partner_messages.response_ref</code></td></tr></tbody></table>
+<p>Journey view joins:</p>
+<pre><code class="language-text">PO document
+-&gt; PO document_versions
+-&gt; PO workflow_runs
+-&gt; PO workflow_node_runs
+-&gt; PO action_attempts
+-&gt; asn_tracking_jobs
+-&gt; asn_tracking_job_attempts
+-&gt; ASN document through document_links
+-&gt; ASN workflow_runs
+-&gt; ASN action_attempts
+-&gt; partner_messages</code></pre>
+<h2 id="18-observability">18. Observability</h2>
+<p>Every event/action has:</p>
+<ul><li><code>trace_id</code></li><li><code>document_id</code></li><li><code>aggregate_key</code></li><li><code>aggregate_key_hash</code></li><li><code>raw_event_id</code></li><li><code>action_attempt_id</code> where applicable</li></ul>
+<p>Trace should show:</p>
+<pre><code class="language-text">webhook received
+raw event saved
+document created
+validation result
+state transitions
+action attempts
+external requests/responses
+retry events
+DLQ/manual actions</code></pre>
+<p>Metrics:</p>
+<ul><li>webhook count by platform</li><li>duplicate count</li><li>parse failure count</li><li>validation failure count</li><li>action success/failure by plugin</li><li>retry count</li><li>DLQ count</li><li>ASN poll age</li><li>PO processing latency</li><li>ack latency</li><li>ASN acceptance rate</li></ul>
+<h3 id="18-1-required-trace-spans">18.1 Required Trace Spans</h3>
+<p>Minimum span names:</p>
+<pre><code class="language-text">webhook.receive
+raw_event.persist
+idempotency.check
+ingestion.enqueue
+document.lock
+partner.parse
+canonical.version.create
+config.resolve
+workflow.run.create
+workflow.node.ready
+approval.action.start
+approval.task.wait
+approval.task.decide
+action.prepare
+action.execute
+action.interpret
+workflow.edge.evaluate
+outbox.dispatch
+retry.schedule
+dlq.write
+asn.poll
+ops.replay</code></pre>
+<p>Required span attributes:</p>
+<pre><code class="language-text">trace_id
+platform_code
+vendor_id
+seller_id
+document_type
+external_document_id
+aggregate_key
+aggregate_key_hash
+document_id
+workflow_run_id
+workflow_node_run_id
+action_attempt_id
+plugin_id
+workflow_version_id
+ruleset_version_id</code></pre>
+<h3 id="18-2-operational-dashboards">18.2 Operational Dashboards</h3>
+<p>Dashboards needed before production:</p>
+<ul><li>ingestion volume by platform/seller</li><li>webhook latency and error rate</li><li>raw event states over time</li><li>duplicate rate</li><li>parse failure rate by partner plugin version</li><li>workflow run status counts</li><li>workflow node run failures by node/plugin</li><li>approval backlog and approval age</li><li>action attempts by plugin/status</li><li>retry queue depth and oldest retry age</li><li>DLQ count by source queue</li><li>ASN tracking jobs due/overdue</li><li>ASN age from PO completion to ASN accepted</li><li>partner API error rates</li></ul>
+<h3 id="18-3-alerts">18.3 Alerts</h3>
+<p>Minimum alerts:</p>
+<pre><code class="language-text">raw_event parse_failed spike
+edi.ingestion queue age high
+action queue age high by plugin
+DLQ count &gt; 0 for critical queues
+approval pending age &gt; SLA
+ASN tracking job overdue
+partner API 5xx spike
+auth failures spike
+workflow publish validation failures spike</code></pre>
+<h2 id="19-security">19. Security</h2>
+<ul><li>API keys stored in Secrets Manager.</li><li>DB stores secret references only.</li><li>IP allowlist per platform account/environment.</li><li>Tenant/seller isolation on every query.</li><li>Ops actions require RBAC.</li><li>State override requires admin role and audit reason.</li><li>Raw payload access is restricted and audited.</li></ul>
+<h3 id="19-1-rbac">19.1 RBAC</h3>
+<p>Roles:</p>
+<pre><code class="language-text">viewer
+operator
+seller_admin
+vendor_admin
+platform_admin
+workflow_admin
+security_admin
+system</code></pre>
+<p>Permissions:</p>
+<table><thead><tr><th>Capability</th><th>Minimum Role</th></tr></thead><tbody><tr><td>View document summary</td><td>viewer</td></tr><tr><td>View raw payload</td><td>operator with raw-payload permission</td></tr><tr><td>Retry action</td><td>operator</td></tr><tr><td>Approve action</td><td>configured approver role</td></tr><tr><td>Reject approval</td><td>configured approver role</td></tr><tr><td>Replay raw event</td><td>operator</td></tr><tr><td>Create amendment</td><td>seller_admin/operator</td></tr><tr><td>Edit workflow draft</td><td>workflow_admin</td></tr><tr><td>Publish workflow</td><td>workflow_admin + approval if required</td></tr><tr><td>Override state</td><td>platform_admin/security controlled</td></tr><tr><td>Edit secrets</td><td>security_admin</td></tr></tbody></table>
+<h3 id="19-2-tenant-isolation">19.2 Tenant Isolation</h3>
+<p>Every query must include:</p>
+<pre><code class="language-text">vendor_id
+seller_id where applicable
+platform_account_id where applicable</code></pre>
+<p>Cross-seller access requires explicit role and audit event.</p>
+<h3 id="19-3-audit-requirements">19.3 Audit Requirements</h3>
+<p>Audit events must be written for:</p>
+<ul><li>workflow publish</li><li>ruleset publish</li><li>action config publish</li><li>approval policy change</li><li>approval decision</li><li>action retry</li><li>raw event replay</li><li>state override</li><li>raw payload view</li><li>amendment creation</li><li>secret reference change</li></ul>
+<h2 id="20-open-config-values">20. Open Config Values</h2>
+<p>These are configurable, not architecture blockers:</p>
+<ul><li>ASN poll interval</li><li>ASN max poll window</li><li>retry attempts per action type</li><li>backoff policy</li><li>partner API rate limit</li><li>action dependency graph</li><li>warning vs blocking rule severity per vendor/seller/platform</li><li>notification routing</li></ul>
+<h2 id="21-simulator-and-test-provider-strategy">21. Simulator And Test Provider Strategy</h2>
+<section class="graph-card"><div class="graph-title">Simulator Provider Strategy</div><div class="graph" data-graph="simulators"></div></section>
+<p>Before integrating with real Blinkit, ERP, or sheet systems, we must build simulator providers. These are not throwaway mocks. They are configurable provider implementations used for local development, automated tests, demos, failure simulation, and onboarding future providers.</p>
+<p>Core principle:</p>
+<pre><code class="language-text">Every external integration has a real provider and a simulator provider behind the same plugin/provider contract.</code></pre>
+<p>Initial simulator providers:</p>
+<pre><code class="language-text">blinkit.simulator
+erp.simulator
+sheet.simulator</code></pre>
+<p>Later real providers:</p>
+<pre><code class="language-text">blinkit.partnersbiz
+erp.customer_specific
+sheet.google_sheets / sheet.microsoft_excel / internal_sheet</code></pre>
+<h3 id="21-1-why-simulator-providers-are-required">21.1 Why Simulator Providers Are Required</h3>
+<p>Simulator providers allow us to test:</p>
+<ul><li>webhook ingestion without real Blinkit calls</li><li>PO acknowledgement behavior without calling partnersbiz</li><li>ASN sync responses including partial/rejected cases</li><li>ERP punch success/failure/idempotency behavior</li><li>ERP ASN readiness after hours/days</li><li>sheet sync as an alternative destination plugin</li><li>retry, DLQ, approval, replay, and amendment flows</li><li>same-PO duplicates and changed-payload scenarios</li><li>high-volume event processing</li></ul>
+<p>No implementation phase should depend on access to real external systems.</p>
+<h3 id="21-2-provider-abstraction">21.2 Provider Abstraction</h3>
+<p>Plugins should depend on provider interfaces, not hardcoded external clients.</p>
+<pre><code class="language-text">Action Plugin
+-&gt; Provider Client Interface
+   -&gt; simulator provider
+   -&gt; real provider</code></pre>
+<p>Example:</p>
+<pre><code class="language-text">blinkit.po_ack action
+-&gt; BlinkitProvider.sendPoAcknowledgement()
+   -&gt; blinkit.simulator
+   -&gt; blinkit.partnersbiz</code></pre>
+<pre><code class="language-text">erp.punch_po action
+-&gt; ErpProvider.punchPurchaseOrder()
+   -&gt; erp.simulator
+   -&gt; erp.customer_specific</code></pre>
+<pre><code class="language-text">sheet.sync_po action
+-&gt; SheetProvider.syncPurchaseOrder()
+   -&gt; sheet.simulator
+   -&gt; sheet.google_sheets</code></pre>
+<p>Provider selection comes from inherited action plugin config and is frozen in <code>resolved_config_snapshots</code>.</p>
+<h3 id="21-3-simulator-services">21.3 Simulator Services</h3>
+<p>Recommended simulator services:</p>
+<pre><code class="language-text">sim-blinkit-api
+sim-erp-api
+sim-sheet-api</code></pre>
+<p>They can run as separate services in local/dev/staging, or as modules in a simulator app. Keeping them separate is preferable because it matches real network behavior and lets us test retries, timeouts, auth failures, and rate limits.</p>
+<h3 id="21-4-sim-blinkit-api">21.4 sim-blinkit-api</h3>
+<p>Responsibilities:</p>
+<ul><li>generate PO creation webhook payloads</li><li>send webhook to our ingress endpoint</li><li>receive PO acknowledgement API calls</li><li>receive ASN sync API calls</li><li>receive PO amendment API calls</li><li>return configurable success/partial/rejected/5xx/timeout responses</li><li>expose scenario APIs for tests and demos</li><li>store received outbound calls for assertions</li></ul>
+<p>Example simulator APIs:</p>
+<pre><code class="language-text">POST /sim/blinkit/scenarios
+POST /sim/blinkit/po-webhooks
+GET  /sim/blinkit/received/po-acks
+GET  /sim/blinkit/received/asns
+GET  /sim/blinkit/received/amendments
+POST /webhook/public/v1/po/acknowledgement
+POST /webhook/public/v1/asn
+POST /webhook/public/v1/po/amendment</code></pre>
+<p>Configurable behavior:</p>
+<pre><code class="language-json">{
+  &quot;scenario&quot;: &quot;asn_partial_rejected&quot;,
+  &quot;poNumber&quot;: &quot;PO-1001&quot;,
+  &quot;ackResponse&quot;: {
+    &quot;mode&quot;: &quot;success&quot;
+  },
+  &quot;asnResponse&quot;: {
+    &quot;mode&quot;: &quot;partial_success&quot;,
+    &quot;itemErrors&quot;: [&quot;SKU-2&quot;]
+  },
+  &quot;latencyMs&quot;: 250,
+  &quot;failureRate&quot;: 0
+}</code></pre>
+<h3 id="21-5-sim-erp-api">21.5 sim-erp-api</h3>
+<p>Responsibilities:</p>
+<ul><li>accept PO punch requests</li><li>return ERP PO references</li><li>simulate idempotency support or lack of it</li><li>expose lookup/reconciliation endpoint by PO number</li><li>expose ASN readiness API</li><li>simulate ASN not ready for several polls/days</li><li>return incomplete ASN data to test ops review</li><li>return full ASN payload to test ASN sync</li><li>simulate auth failures, 5xx, timeout, rate limit</li></ul>
+<p>Example simulator APIs:</p>
+<pre><code class="language-text">POST /sim/erp/purchase-orders
+GET  /sim/erp/purchase-orders/{poNumber}
+GET  /sim/erp/asn-details/{poNumber}
+POST /sim/erp/scenarios</code></pre>
+<p>Configurable behavior:</p>
+<pre><code class="language-json">{
+  &quot;poNumber&quot;: &quot;PO-1001&quot;,
+  &quot;punchPo&quot;: {
+    &quot;mode&quot;: &quot;success&quot;,
+    &quot;externalReference&quot;: &quot;ERP-PO-9001&quot;
+  },
+  &quot;asnDetails&quot;: {
+    &quot;readyAfterPolls&quot;: 3,
+    &quot;mode&quot;: &quot;ready&quot;,
+    &quot;missingFields&quot;: []
+  }
+}</code></pre>
+<h3 id="21-6-sim-sheet-api">21.6 sim-sheet-api</h3>
+<p>Responsibilities:</p>
+<ul><li>accept PO sync requests</li><li>accept ASN status sync requests</li><li>store rows/cells in simulator memory or DB</li><li>simulate duplicate row detection</li><li>simulate permission errors</li><li>simulate rate limits and transient failures</li><li>expose stored sheet state for assertions</li></ul>
+<p>Example simulator APIs:</p>
+<pre><code class="language-text">POST /sim/sheets/{sheetId}/rows
+GET  /sim/sheets/{sheetId}/rows
+POST /sim/sheets/{sheetId}/scenarios</code></pre>
+<p>Configurable behavior:</p>
+<pre><code class="language-json">{
+  &quot;sheetId&quot;: &quot;seller-123-po-sync&quot;,
+  &quot;syncPo&quot;: {
+    &quot;mode&quot;: &quot;success&quot;,
+    &quot;duplicatePolicy&quot;: &quot;update_existing&quot;
+  },
+  &quot;latencyMs&quot;: 100
+}</code></pre>
+<h3 id="21-7-scenario-catalog">21.7 Scenario Catalog</h3>
+<p>Minimum scenarios:</p>
+<table><thead><tr><th>Scenario</th><th>Purpose</th></tr></thead><tbody><tr><td><code>happy_path_erp</code></td><td>PO -&gt; validation -&gt; ERP punch -&gt; ack -&gt; ASN poll -&gt; ASN accepted</td></tr><tr><td><code>happy_path_sheet</code></td><td>PO -&gt; validation -&gt; sheet sync -&gt; ack</td></tr><tr><td><code>duplicate_po_webhook</code></td><td>Exact duplicate creates no side effects</td></tr><tr><td><code>same_po_changed_before_side_effect</code></td><td>New document version and safe workflow restart</td></tr><tr><td><code>same_po_changed_after_side_effect</code></td><td>Manual review/amendment path</td></tr><tr><td><code>validation_rejected</code></td><td>Validation action rejected edge</td></tr><tr><td><code>approval_required_approved</code></td><td>Approval task gates action execution</td></tr><tr><td><code>approval_required_rejected</code></td><td>Rejection edge from approval</td></tr><tr><td><code>erp_timeout_then_retry</code></td><td>Retry and idempotency</td></tr><tr><td><code>erp_permanent_mapping_error</code></td><td>Block/manual review</td></tr><tr><td><code>ack_500_then_retry</code></td><td>Retry only ack action</td></tr><tr><td><code>asn_not_ready_for_days</code></td><td>Persisted polling with <code>next_poll_at</code></td></tr><tr><td><code>asn_data_incomplete</code></td><td>Ops review/reschedule</td></tr><tr><td><code>asn_partial_rejected</code></td><td>Item-level errors</td></tr><tr><td><code>amendment_success</code></td><td>User-created amendment sent to platform</td></tr></tbody></table>
+<h3 id="21-8-simulator-data-and-assertions">21.8 Simulator Data And Assertions</h3>
+<p>Simulator providers must store:</p>
+<pre><code class="language-text">received requests
+response generated
+scenario id
+correlation id / trace id
+idempotency key
+external reference generated
+timestamp</code></pre>
+<p>Tests should assert:</p>
+<ul><li>expected external calls happened exactly once</li><li>duplicate webhooks did not create duplicate external calls</li><li>retries reused same idempotency key</li><li>approval-required actions did not call provider before approval</li><li>ASN poll rescheduled instead of keeping worker alive</li><li>request payloads match partner API contract shape</li></ul>
+<h3 id="21-9-configuration-model">21.9 Configuration Model</h3>
+<p>Provider config is inherited like other action config:</p>
+<pre><code class="language-text">global default provider = simulator
+platform override = simulator or real
+vendor override = simulator or real
+seller override = simulator or real if allowed</code></pre>
+<p>Example:</p>
+<pre><code class="language-json">{
+  &quot;pluginId&quot;: &quot;erp.punch_po&quot;,
+  &quot;provider&quot;: &quot;erp.simulator&quot;,
+  &quot;providerConfig&quot;: {
+    &quot;baseUrl&quot;: &quot;http://sim-erp-api&quot;,
+    &quot;scenarioSet&quot;: &quot;default&quot;
+  }
+}</code></pre>
+<p>Production cutover changes provider config to the real provider by publishing a new config version. Old workflow runs keep their simulator provider in the resolved snapshot.</p>
+<h3 id="21-10-cutover-strategy">21.10 Cutover Strategy</h3>
+<p>Cutover from simulator to real systems:</p>
+<pre><code class="language-text">1. Run full scenario catalog against simulator.
+2. Run contract tests comparing simulator payloads with real API contracts.
+3. Enable real provider in dev/staging for one seller.
+4. Run shadow/dry-run mode where possible.
+5. Publish seller-level provider config version.
+6. Monitor action failures, retries, partner responses.
+7. Roll back by assigning previous simulator/provider config version if needed.</code></pre>
+<h2 id="22-development-by-components">22. Development By Components</h2>
+<p>Build by independently testable ownership buckets, not by one end-to-end flow at a time. Each bucket has a clear runtime boundary, API surface, persistence ownership, and simulator-backed acceptance tests.</p>
+<p>UI is out of scope for first implementation, but the API service that powers future UI and ops workflows is in scope. Do not let UI read tables directly.</p>
+<p>Recommended build order:</p>
+<pre><code class="language-text">Foundation/Core Data
+-&gt; Simulator/Test Harness
+-&gt; API Service
+-&gt; Core Workflow Runtime
+-&gt; Plugin Runtime + Plugins
+-&gt; Blinkit PO Integration
+-&gt; ASN Runtime
+-&gt; Ops/Audit/Observability
+-&gt; Production Hardening</code></pre>
+<h3 id="22-1-foundation-and-core-data-development">22.1 Foundation And Core Data Development</h3>
+<p>Owns database contracts, object-store references, constraints, and migration safety. Build first because every other component depends on these contracts.</p>
+<p>Scope:</p>
+<ul><li>table migrations for all schema groups</li><li>table-level unique constraints and key indexes from schema docs section <code>4A</code></li><li>append-only <code>raw_events</code></li><li>non-unique <code>raw_events.dedupe_key</code></li><li><code>raw_events.duplicate_of_raw_event_id</code></li><li><code>documents</code> unique business identity</li><li><code>document_versions</code> unique payload/version identity</li><li><code>idempotency_keys</code> with <code>unique(scope, key)</code></li><li><code>outbox</code>, <code>partner_messages</code>, <code>asn_tracking_jobs</code>, and <code>asn_tracking_job_attempts</code> ownership constraints</li><li>object-store payload reference conventions</li><li>migration rollback rules</li><li>seed data for global/platform defaults</li></ul>
+<p>Acceptance:</p>
+<ul><li>duplicate raw webhooks can be stored as separate rows</li><li>duplicate document/version creation is blocked by owner-table constraints</li><li>external side-effect claim conflicts are blocked by <code>idempotency_keys</code></li><li>all high-volume query paths have indexes before workers are built</li></ul>
+<p>Sub-categories:</p>
+<ul><li>schema migrations</li><li>constraints/indexes</li><li>object-store payload conventions</li><li>data seed/bootstrap</li><li>migration tests</li></ul>
+<h3 id="22-2-api-service-development">22.2 API Service Development</h3>
+<p>Owns public ingress APIs, ops APIs, config APIs, and onboarding APIs. UI is out of scope, but these APIs are the backend contract for future UI.</p>
+<h4 id="22-2-1-public-ingress-apis">22.2.1 Public Ingress APIs</h4>
+<p>Scope:</p>
+<pre><code class="language-text">POST /webhooks/{platform}/purchase-orders
+POST /webhooks/{platform}/asn-events optional future</code></pre>
+<p>Responsibilities:</p>
+<ul><li>authenticate <code>Api-Key</code></li><li>enforce IP allowlist</li><li>resolve platform account/vendor/seller</li><li>store raw payload before parsing</li><li>append <code>raw_events</code></li><li>enqueue ingestion through outbox/direct recorded message</li></ul>
+<p>Acceptance:</p>
+<ul><li>every webhook produces a raw event</li><li>unknown supplier/account becomes <code>needs_mapping</code></li><li>ingress never calls ERP, sheet, Blinkit outbound APIs, or workflow actions directly</li></ul>
+<h4 id="22-2-2-ops-apis">22.2.2 Ops APIs</h4>
+<p>Scope:</p>
+<pre><code class="language-text">GET  /ops/documents
+GET  /ops/documents/{documentId}
+GET  /ops/documents/{documentId}/versions
+GET  /ops/traces/{traceId}
+GET  /ops/raw-events/{rawEventId}
+POST /ops/raw-events/{rawEventId}/replay
+POST /ops/action-attempts/{actionAttemptId}/retry
+POST /ops/asn-tracking-jobs/{asnTrackingJobId}/poll-now
+POST /ops/approvals/{approvalTaskId}/approve
+POST /ops/approvals/{approvalTaskId}/reject</code></pre>
+<p>Responsibilities:</p>
+<ul><li>expose PO-to-ASN journey read model</li><li>expose raw/canonical/action payload refs through audited access</li><li>trigger retry, replay, poll-now, and approval commands</li><li>require audit reason for sensitive operations</li></ul>
+<p>Acceptance:</p>
+<ul><li>ops API can answer what happened for one PO without joining tables client-side</li><li>retry/replay cannot bypass idempotency or side-effect guards</li><li>raw payload access creates audit log</li></ul>
+<h4 id="22-2-3-config-apis">22.2.3 Config APIs</h4>
+<p>Scope:</p>
+<pre><code class="language-text">POST /config/workflow-templates
+POST /config/workflow-versions/{versionId}/validate
+POST /config/workflow-versions/{versionId}/publish
+POST /config/workflow-assignments
+POST /config/ruleset-versions
+POST /config/ruleset-versions/{versionId}/publish
+POST /config/action-plugin-configs
+POST /config/approval-policies
+POST /config/retry-policies
+GET  /config/effective?platform=&amp;vendor=&amp;seller=&amp;documentType=</code></pre>
+<p>Responsibilities:</p>
+<ul><li>draft and publish immutable workflow/rules/config versions</li><li>validate workflow DAGs before publish</li><li>preview effective global/platform/vendor/seller config</li><li>never mutate runtime workflow runs</li></ul>
+<p>Acceptance:</p>
+<ul><li>published config is immutable</li><li>effective config preview matches runtime config snapshot resolver</li><li>invalid DAGs cannot be published</li></ul>
+<h4 id="22-2-4-onboarding-apis">22.2.4 Onboarding APIs</h4>
+<p>Scope:</p>
+<pre><code class="language-text">POST /vendors
+POST /sellers
+POST /seller-locations
+POST /seller-tax-profiles
+POST /platform-accounts
+POST /seller-item-mappings
+POST /asn-source-configs</code></pre>
+<p>Responsibilities:</p>
+<ul><li>onboard vendor/seller records</li><li>map Blinkit external identity:</li></ul>
+<pre><code class="language-text">tenant + supplier_details.id + optional GSTIN/outlet
+-&gt; platform_accounts
+-&gt; vendor_id + seller_id</code></pre>
+<ul><li>map item/brand identity:</li></ul>
+<pre><code class="language-text">Blinkit item_id / sku_code / upc
+-&gt; seller_item_mappings
+-&gt; brand_id</code></pre>
+<p>Acceptance:</p>
+<ul><li>onboarding creates minimal config needed for first PO</li><li>unknown supplier and unknown item flows are visible to ops/config APIs</li><li>secrets are stored as <code>secret_ref</code>, never as plaintext</li></ul>
+<h3 id="22-3-simulator-and-test-harness-development">22.3 Simulator And Test Harness Development</h3>
+<p>Build before real Blinkit/ERP/sheet integrations.</p>
+<p>Scope:</p>
+<ul><li><code>sim-blinkit-api</code></li><li><code>sim-erp-api</code></li><li><code>sim-sheet-api</code></li><li>scenario catalog</li><li>provider abstraction interfaces</li><li>contract test harness</li><li>simulator request/response assertion store</li><li>default global provider config pointing to simulators</li></ul>
+<p>Acceptance:</p>
+<ul><li>scenario catalog can prove duplicate webhooks do not create duplicate external calls</li><li>retries reuse same idempotency key</li><li>ASN polling can simulate <code>not_ready</code>, <code>data_incomplete</code>, <code>ready</code>, partial accept, and reject</li><li>simulator payloads stay aligned with Blinkit API contracts</li></ul>
+<p>Sub-categories:</p>
+<ul><li><code>sim-blinkit-api</code></li><li><code>sim-erp-api</code></li><li><code>sim-sheet-api</code></li><li>provider abstraction contracts</li><li>scenario catalog</li><li>request/response assertion store</li><li>contract tests</li></ul>
+<h3 id="22-4-core-workflow-runtime-development">22.4 Core Workflow Runtime Development</h3>
+<p>Owns platform engine behavior. No Blinkit-specific mapping logic belongs here.</p>
+<h4 id="22-4-1-ingestion-worker">22.4.1 Ingestion Worker</h4>
+<p>Scope:</p>
+<ul><li>consume <code>edi.ingestion</code></li><li>lock aggregate/document identity</li><li>load raw event and latest document/version</li><li>call partner parser/mapper</li><li>duplicate detection by <code>business_key + payload_hash</code></li><li>create document/version or mark duplicate/change-policy path</li></ul>
+<p>Acceptance:</p>
+<ul><li>exact duplicate links to original by <code>duplicate_of_raw_event_id</code></li><li>same PO changed payload creates a new version or review path</li><li>parser failures preserve raw event and are replayable</li></ul>
+<h4 id="22-4-2-canonical-document-and-version-service">22.4.2 Canonical Document And Version Service</h4>
+<p>Scope:</p>
+<ul><li>canonical PO document envelope</li><li>canonical document/version persistence</li><li>same-PO duplicate/change policy</li><li>raw-to-canonical traceability</li></ul>
+<p>Acceptance:</p>
+<ul><li>same PO + same payload creates no new document version</li><li>same PO + changed payload creates new version or manual review by policy</li><li><code>brand_id</code> is internal enrichment and not required by Blinkit payload unless a rule requires it</li><li>parser failures preserve raw event and are replayable</li></ul>
+<h4 id="22-4-3-workflow-engine">22.4.3 Workflow Engine</h4>
+<p>Scope:</p>
+<ul><li>workflow templates, versions, nodes, edges, layouts, assignments</li><li>workflow publish validation</li><li>workflow runs and node runs</li><li>state transitions and audit records</li><li>edge evaluation and action attempt creation</li><li>document state updates</li></ul>
+<p>Acceptance:</p>
+<ul><li>workflow publish rejects invalid DAGs</li><li>running workflow uses only published immutable versions</li><li>PO and ASN workflows remain separate executable workflows</li><li>journey view can stitch both workflows together later</li></ul>
+<h4 id="22-4-4-config-resolver">22.4.4 Config Resolver</h4>
+<p>Scope:</p>
+<ul><li>config inheritance by global/platform/vendor/seller</li><li>immutable resolved config snapshots</li><li>workflow/rules/plugin/approval/retry config resolution</li><li>effective config preview support</li></ul>
+<p>Acceptance:</p>
+<ul><li>config changes do not affect already running workflow runs</li><li>snapshot explains exactly which config versions were used</li><li>API preview and runtime resolver produce same effective config</li></ul>
+<h4 id="22-4-5-idempotency-locking-outbox-retry">22.4.5 Idempotency, Locking, Outbox, Retry</h4>
+<p>Scope:</p>
+<ul><li>aggregate/document lock strategy</li><li><code>idempotency_keys</code> claim/reclaim</li><li>stale <code>processing</code> handling</li><li>transactional outbox</li><li>queue dispatcher</li><li>retry scheduler</li><li>DLQ write and replay hooks</li></ul>
+<p>Acceptance:</p>
+<ul><li>same PO is processed by one state writer at a time</li><li>outbox publish retry never creates duplicate logical messages</li><li>stale idempotency claims are visible and recoverable</li><li>retry/DLQ behavior is deterministic</li></ul>
+<h3 id="22-5-plugin-runtime-and-plugin-development">22.5 Plugin Runtime And Plugin Development</h3>
+<p>Owns plugin contracts and plugin implementations. Core runtime calls plugins; plugins return normalized results and never mutate document state directly.</p>
+<h4 id="22-5-1-plugin-runtime">22.5.1 Plugin Runtime</h4>
+<p>Scope:</p>
+<ul><li>action worker claim/lock model</li><li>action attempts and retries</li><li>side-effect idempotency claims:</li></ul>
+<pre><code class="language-text">idempotency_keys unique(scope, key)
+partner_messages unique(platform_code, endpoint, idempotency_key)</code></pre>
+<ul><li>request/response object refs</li><li>retry scheduler and DLQ</li><li>validation action plugin</li><li>approval action plugin</li></ul>
+<p>Acceptance:</p>
+<ul><li>duplicate worker delivery cannot execute same side effect twice</li><li>retries use same idempotency key</li><li>partner timeout after request send is safe only with external idempotency or lookup/reconciliation</li><li>plugins never mutate document state directly</li></ul>
+<h4 id="22-5-2-partner-plugins">22.5.2 Partner Plugins</h4>
+<p>Scope:</p>
+<pre><code class="language-text">blinkit.purchase_order.parser
+blinkit.po_ack.builder
+blinkit.asn_sync.builder
+blinkit.amendment.builder</code></pre>
+<p>Responsibilities:</p>
+<ul><li>parse platform payloads</li><li>map platform fields to canonical documents</li><li>build outbound partner payloads</li><li>interpret partner responses</li><li>keep Blinkit-specific logic out of workflow core</li></ul>
+<h4 id="22-5-3-action-plugins">22.5.3 Action Plugins</h4>
+<p>Scope:</p>
+<pre><code class="language-text">validation.ruleset_engine
+erp.punch_po
+sheet.sync_po
+blinkit.po_ack
+edi.schedule_asn_tracking
+blinkit.asn_sync
+approval.manual_decision
+notification.send</code></pre>
+<p>Responsibilities:</p>
+<ul><li><code>prepare</code></li><li><code>execute</code></li><li><code>interpret</code></li><li>request/response object refs</li><li>normalized action result</li></ul>
+<h4 id="22-5-4-asn-source-plugins">22.5.4 ASN Source Plugins</h4>
+<p>Scope:</p>
+<pre><code class="language-text">erp.get_asn_details
+file.asn_import future
+ui.manual_asn future</code></pre>
+<p>Responsibilities:</p>
+<ul><li>readiness checks</li><li>source request/response refs</li><li>missing field detection</li><li>normalized source result: <code>not_ready</code>, <code>data_incomplete</code>, <code>ready</code>, <code>failure</code></li></ul>
+<h3 id="22-6-blinkit-po-integration-development">22.6 Blinkit PO Integration Development</h3>
+<p>Scope:</p>
+<ul><li>default Blinkit PO workflow template</li><li>Blinkit PO parser/mapper</li><li>PO validation ruleset</li><li>ERP punch plugin or sheet sync plugin</li><li>Blinkit PO acknowledgement action</li><li>PO journey trace view</li><li>duplicate and changed-PO scenarios</li></ul>
+<p>Acceptance:</p>
+<ul><li>happy path: PO webhook -&gt; canonical PO -&gt; workflow -&gt; ERP/sheet -&gt; Blinkit ACK</li><li>exact duplicate PO creates no workflow/action/partner side effect</li><li>changed PO before side effects follows new-version policy</li><li>changed PO after side effects routes to manual review/amendment policy</li></ul>
+<h3 id="22-7-asn-runtime-development">22.7 ASN Runtime Development</h3>
+<p>Scope:</p>
+<ul><li><code>schedule_asn_tracking</code> short PO workflow action</li><li>persisted <code>asn_tracking_jobs</code></li><li><code>asn_tracking_job_attempts</code></li><li>ASN source plugin interface</li><li>ERP <code>get_asn_details</code> source plugin</li><li>ASN build snapshots</li><li>canonical ASN document/version creation</li><li>document link: ASN generated from PO</li><li>ASN workflow template</li><li>ASN validation action</li><li>Blinkit ASN sync action</li></ul>
+<p>Acceptance:</p>
+<ul><li>PO workflow completes after scheduling ASN tracking; it does not wait for days</li><li>ASN poller survives restarts and uses <code>next_poll_at</code></li><li><code>not_ready</code> reschedules job</li><li><code>data_incomplete</code> routes to ops review</li><li><code>ready</code> creates ASN document/version and starts ASN workflow</li><li>ASN sync stores request/response evidence and handles partial/rejected responses</li></ul>
+<h3 id="22-8-amendment-and-config-development">22.8 Amendment And Config Development</h3>
+<p>Scope:</p>
+<ul><li>user-created PO amendment document</li><li>amendment workflow</li><li>Blinkit amendment action</li><li>workflow/config API support for future UI</li><li>workflow graph validation API</li><li>ruleset editor</li><li>approval policy editor</li><li>retry policy editor</li><li>effective config preview</li></ul>
+<p>Acceptance:</p>
+<ul><li>amendments are separate linked documents, not silent PO mutations</li><li>workflow/rules/config edits publish immutable versions</li><li>UI can preview effective config for platform/vendor/seller/document type</li></ul>
+<h3 id="22-9-ops-audit-and-observability-development">22.9 Ops, Audit, And Observability Development</h3>
+<p>Scope:</p>
+<ul><li>PO-to-ASN journey read model</li><li>trace API/read model</li><li>raw payload access audit</li><li>signed URL access to raw/action payload refs</li><li>retry/replay/poll-now command audit</li><li>metrics and dashboards</li><li>duplicate/retry/DLQ/ASN overdue views</li></ul>
+<p>Acceptance:</p>
+<ul><li>operator can answer what payload arrived, what version was created, which workflow/config ran, what actions executed, what external calls were sent, and what response came back</li><li>duplicate events are visible without cluttering main document state</li><li>replay and retry are auditable command events</li></ul>
+<h3 id="22-10-production-hardening">22.10 Production Hardening</h3>
+<p>Scope:</p>
+<ul><li>full RBAC</li><li>load tests for high event volume</li><li>replay drills</li><li>DLQ runbooks</li><li>partner API rate-limit controls</li><li>cross-seller isolation checks</li><li>stale <code>processing</code> idempotency claim runbooks</li><li>backup/restore validation</li><li>migration rollout/rollback drills</li></ul>
+<p>Acceptance:</p>
+<ul><li>replay is audited and cannot bypass idempotency/side-effect guards</li><li>stale <code>processing</code> idempotency claims have a runbook and retry policy</li><li>production dashboards cover duplicate rate, retry rate, DLQ, ASN overdue jobs, and partner API failures</li></ul>
+<h2 id="23-implementation-ready-checklist">23. Implementation-Ready Checklist</h2>
+<p>Before coding begins, these contracts should be considered fixed enough for first implementation:</p>
+<ul><li>simulator provider interfaces</li><li>simulator scenario catalog</li><li>simulator request/response assertion model</li><li>canonical document envelope</li><li>raw event schema</li><li>document/version schema</li><li>workflow definition/runtime schema</li><li>validation-as-action model</li><li>config inheritance and snapshot model</li><li>action plugin capability/context/result contracts</li><li>RabbitMQ queue/message contracts</li><li>same-PO duplicate/change policy</li><li>approval action lifecycle</li><li>ASN tracking job lifecycle</li><li>audit/state transition model</li></ul>
+<h2 id="24-non-negotiable-guarantees">24. Non-Negotiable Guarantees</h2>
+<ul><li>raw event is preserved before parsing</li><li>exact duplicates do not trigger duplicate side effects</li><li>same PO is processed by one state writer at a time</li><li>workflow engine owns state</li><li>plugins only return results</li><li>actions are independently retryable</li><li>every transition is audited</li><li>every external call stores request/response refs</li><li>simulator providers exist before real provider cutover</li><li>provider selection is config-driven and frozen in resolved config snapshot</li><li>ASN polling survives process restarts and can span days</li><li>amendments are separate documents linked to PO, not silent PO mutations</li></ul>
+</article>
+</main>
+</div>
+<script>
+const colors={edge:"#38485e",core:"#4cc9f0",plugin:"#5fd3bc",queue:"#f4b860",store:"#b8c0ff",risk:"#ff6b6b"};
+function n(id,label,layer){return {data:{id,label,layer}}}
+function e(source,target,label){return {data:{source,target,label:label||""}}}
+const style=[
+{selector:"node",style:{label:"data(label)","text-wrap":"wrap","text-max-width":150,"font-size":11,"font-weight":700,color:"#edf6ff","text-valign":"center","text-halign":"center",shape:"round-rectangle",width:150,height:58,"background-color":ele=>colors[ele.data("layer")]||"#60708a","border-width":1,"border-color":"#d7e2ee"}},
+{selector:"edge",style:{width:1.6,"line-color":"#65758c","target-arrow-color":"#65758c","target-arrow-shape":"triangle","curve-style":"bezier",label:"data(label)","font-size":9,color:"#aeb9c8","text-background-color":"#090d12","text-background-opacity":.75,"text-background-padding":2}},
+{selector:'node[layer = "risk"]',style:{"background-color":colors.risk,color:"#fff"}},
+{selector:'node[layer = "store"]',style:{"background-color":colors.store,color:"#10131a"}},
+{selector:'node[layer = "queue"]',style:{"background-color":colors.queue,color:"#17110a"}}
+];
+const graphs={
+highLevel:[n("api","Webhook/API Gateway","edge"),n("auth","Auth Guard\nApi-Key + IP","edge"),n("raw","Raw Event Writer","edge"),n("idem","Idempotency Service","core"),n("ingest","RabbitMQ\nedi.ingestion","queue"),n("partner","Partner Plugin Runtime","plugin"),n("canonical","Canonical Document Service","core"),n("config","Config Resolver","core"),n("workflow","DB-backed Workflow Engine","core"),n("outbox","Transactional Outbox","core"),n("actionq","RabbitMQ\nAction Queues","queue"),n("approval","Approval Action\napproval.manual_decision","plugin"),n("validation","Validation Action\nruleset_engine","plugin"),n("erp","ERP Action Plugin","plugin"),n("sheet","Sheet Sync Action","plugin"),n("ack","Blinkit PO Ack Action","plugin"),n("asn","ASN Actions\nschedule + sync","plugin"),n("asntrack","ASN Tracking Jobs","queue"),n("amendment","Amendment Action","plugin"),n("notify","Notification Action","plugin"),n("retry","Retry Scheduler","core"),n("dlq","Dead Letter Queues","risk"),n("poller","ASN Poller Infra","core"),n("pg","Postgres","store"),n("obj","Object Store","store"),n("audit","Audit Ledger","store"),n("trace","Logs/Metrics/Traces","store"),e("api","auth"),e("auth","raw"),e("raw","idem"),e("raw","obj"),e("idem","ingest"),e("ingest","partner"),e("partner","canonical"),e("canonical","workflow"),e("config","workflow"),e("workflow","outbox"),e("outbox","actionq"),e("actionq","approval"),e("actionq","validation"),e("actionq","erp"),e("actionq","sheet"),e("actionq","ack"),e("actionq","asn"),e("actionq","amendment"),e("actionq","notify"),e("approval","workflow"),e("validation","workflow"),e("erp","workflow"),e("sheet","workflow"),e("ack","workflow"),e("asn","workflow"),e("asn","asntrack","schedule"),e("asntrack","poller"),e("amendment","workflow"),e("notify","workflow"),e("retry","actionq"),e("actionq","dlq"),e("workflow","pg"),e("poller","erp"),e("workflow","audit"),e("workflow","trace")],
+db:[n("raw","RAW_EVENTS","edge"),n("docs","DOCUMENTS","store"),n("versions","DOCUMENT_VERSIONS","store"),n("links","DOCUMENT_LINKS","store"),n("runs","WORKFLOW_RUNS","core"),n("nodes","WORKFLOW_NODE_RUNS","core"),n("attempts","ACTION_ATTEMPTS","plugin"),n("approvals","APPROVAL_TASKS","plugin"),n("results","VALIDATION_RESULTS","plugin"),n("asn","ASN_TRACKING_JOBS","queue"),n("asna","ASN_TRACKING_JOB_ATTEMPTS","queue"),n("wfv","WORKFLOW_VERSIONS","core"),n("wfn","WORKFLOW_NODES","core"),n("wfe","WORKFLOW_EDGES","core"),n("rules","RULESET_VERSIONS","plugin"),n("snap","CONFIG_SNAPSHOTS","store"),e("raw","docs","creates"),e("docs","versions"),e("docs","links","PO/ASN links"),e("docs","runs"),e("runs","nodes"),e("nodes","attempts"),e("attempts","approvals","approval action"),e("attempts","results","validation action"),e("docs","asn","schedule action"),e("asn","asna","poll history"),e("asn","docs","creates ASN"),e("wfv","wfn"),e("wfv","wfe"),e("rules","results"),e("snap","runs")],
+rules:[n("global","Global Ruleset","core"),n("platform","Platform Ruleset\nBlinkit","core"),n("vendor","Vendor Ruleset","core"),n("seller","Seller Ruleset","core"),n("merge","Effective Ruleset Merge","plugin"),n("preview","Preview + Dry Run","core"),n("publish","Published Immutable Version","store"),n("snapshot","Resolved Config Snapshot","store"),n("validate","validation.ruleset_engine","plugin"),n("results","validation_results","store"),e("global","merge"),e("platform","merge"),e("vendor","merge"),e("seller","merge"),e("merge","preview"),e("preview","publish"),e("publish","snapshot"),e("snapshot","validate"),e("validate","results")],
+approvalPatterns:[n("pre","Pre-action Approval","plugin"),n("erp","erp.punch_po","plugin"),n("post","Post-action Approval","plugin"),n("ack","blinkit.po_ack","plugin"),n("risky","Action returns\nmanual_required","plugin"),n("checkpoint","Checkpoint Approval","plugin"),n("continue","Continuation Action","plugin"),n("reject","Rejected/Expired Terminal","risk"),e("pre","erp","approved"),e("pre","reject","rejected"),e("erp","post","success"),e("post","ack","approved"),e("post","reject","rejected"),e("risky","checkpoint","manual_required"),e("checkpoint","continue","approved"),e("checkpoint","reject","rejected")],
+asnWorkflow:[n("poDoc","PurchaseOrder\ndocument","store"),n("poRun","PO Workflow Run","core"),n("validatePo","validate_po","plugin"),n("dest","ERP punch / Sheet sync","plugin"),n("ack","blinkit_po_ack","plugin"),n("schedule","schedule_asn_tracking","plugin"),n("job","asn_tracking_jobs","queue"),n("attempts","asn_tracking_job_attempts","queue"),n("source","ASN Source Plugin\nERP get_asn_details","plugin"),n("config","Onboarding Config\nlocation/tax/item/brand/source","store"),n("build","asn_build_snapshots","store"),n("asnDoc","AdvanceShipmentNotice\ndocument","store"),n("asnVersion","ASN document_version\ncanonical_json","store"),n("link","document_links\nASN generated_from PO","store"),n("asnRun","ASN Workflow Run","core"),n("validateAsn","validate_asn","plugin"),n("sendAsn","blinkit_asn_sync","plugin"),n("messages","partner_messages\nrequest/response refs","store"),e("poDoc","poRun"),e("poRun","validatePo"),e("validatePo","dest","success"),e("dest","ack","success"),e("ack","schedule","success"),e("schedule","job","create + complete action"),e("job","source","next_poll_at due"),e("source","attempts","store request/response refs"),e("attempts","job","not_ready: reschedule"),e("attempts","build","ready source data"),e("config","build","freeze inputs"),e("build","asnDoc","create ASN"),e("asnDoc","asnVersion"),e("asnDoc","link","source"),e("poDoc","link","target"),e("asnDoc","asnRun"),e("asnRun","validateAsn"),e("validateAsn","sendAsn","success"),e("sendAsn","messages")],
+simulators:[n("plugins","Action Plugins","core"),n("provider","Provider Interface","core"),n("blinkitSim","blinkit.simulator","plugin"),n("erpSim","erp.simulator","plugin"),n("sheetSim","sheet.simulator","plugin"),n("blinkitReal","Blinkit Real API","edge"),n("erpReal","Real ERP","edge"),n("sheetReal","Real Sheet","edge"),n("tests","Scenario Catalog","store"),e("plugins","provider"),e("provider","blinkitSim"),e("provider","erpSim"),e("provider","sheetSim"),e("provider","blinkitReal"),e("provider","erpReal"),e("provider","sheetReal"),e("tests","blinkitSim"),e("tests","erpSim"),e("tests","sheetSim")]
+};
+document.querySelectorAll("[data-graph]").forEach((el)=>{const elements=graphs[el.dataset.graph];if(!elements)return;const cy=cytoscape({container:el,elements,style,layout:{name:"dagre",rankDir:el.dataset.graph==="db"?"TB":"LR",nodeSep:42,rankSep:70},wheelSensitivity:.18,minZoom:.18,maxZoom:2.6});cy.ready(()=>cy.fit(undefined,28));});
+</script>
+</body>
+</html>

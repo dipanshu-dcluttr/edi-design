@@ -1,0 +1,605 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDI Integration Platform Architecture</title>
+  <script type="module">
+    import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs";
+    mermaid.initialize({
+      startOnLoad: true,
+      theme: "dark",
+      securityLevel: "loose",
+      flowchart: { curve: "basis", nodeSpacing: 48, rankSpacing: 74 },
+      sequence: { mirrorActors: false },
+      themeVariables: {
+        background: "#0b0f14",
+        primaryColor: "#17202b",
+        primaryTextColor: "#f3f7fb",
+        primaryBorderColor: "#617188",
+        lineColor: "#93a1b3",
+        secondaryColor: "#14231e",
+        tertiaryColor: "#221a31",
+        clusterBkg: "#101720",
+        clusterBorder: "#3d4a59",
+        fontFamily: "ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif"
+      }
+    });
+  </script>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --panel: #121821;
+      --panel-soft: #151d27;
+      --line: #354252;
+      --text: #edf3f8;
+      --muted: #a7b3c2;
+      --blue: #2f85c8;
+      --violet: #8a70d6;
+      --green: #3b9d72;
+      --amber: #c1872f;
+      --red: #ab4545;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 280px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+    aside {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      padding: 24px 18px;
+      border-right: 1px solid var(--line);
+      background: #0e131a;
+      overflow: auto;
+    }
+    aside h1 {
+      margin: 0 0 18px;
+      font-size: 20px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+    nav a {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    nav a:hover { background: #17202b; color: var(--text); }
+    main { max-width: 1540px; padding: 32px; }
+    header { margin-bottom: 22px; }
+    header h2 { margin: 0 0 8px; font-size: 34px; letter-spacing: 0; }
+    header p { max-width: 1050px; }
+    section {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 8px;
+      padding: 20px;
+      margin: 18px 0;
+    }
+    section h3 { margin: 0 0 14px; font-size: 21px; letter-spacing: 0; }
+    p, li { color: var(--muted); line-height: 1.46; }
+    code {
+      color: #dbe4ef;
+      background: #0b1017;
+      border: 1px solid #2e3947;
+      border-radius: 4px;
+      padding: 1px 4px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: 0.92em;
+    }
+    pre.code {
+      white-space: pre-wrap;
+      color: #dbe4ef;
+      background: #0b1017;
+      border: 1px solid #2e3947;
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 12px;
+      overflow: auto;
+    }
+    .mermaid {
+      background: #0b1017;
+      border: 1px solid #2e3947;
+      border-radius: 8px;
+      padding: 18px;
+      overflow: auto;
+    }
+    .grid { display: grid; gap: 12px; }
+    .two { grid-template-columns: 1fr 1fr; }
+    .three { grid-template-columns: repeat(3, 1fr); }
+    .four { grid-template-columns: repeat(4, 1fr); }
+    .card {
+      border: 1px solid #465566;
+      border-radius: 8px;
+      padding: 13px;
+      background: var(--panel-soft);
+      min-height: 116px;
+    }
+    .card h4 { margin: 0 0 8px; font-size: 15px; }
+    .card p, .card li { margin: 0 0 5px; font-size: 13px; }
+    .card ul { margin: 0; padding-left: 18px; }
+    .blue { border-color: var(--blue); }
+    .violet { border-color: var(--violet); }
+    .green { border-color: var(--green); }
+    .amber { border-color: var(--amber); }
+    .red { border-color: var(--red); }
+    .table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    .table th, .table td {
+      border: 1px solid var(--line);
+      padding: 9px;
+      text-align: left;
+      vertical-align: top;
+    }
+    .table th { background: #18212c; color: var(--text); }
+    .pill {
+      display: inline-block;
+      border: 1px solid #526174;
+      border-radius: 999px;
+      padding: 4px 9px;
+      margin: 3px 4px 3px 0;
+      color: #cad4df;
+      font-size: 12px;
+    }
+    @media (max-width: 1000px) {
+      .layout { grid-template-columns: 1fr; }
+      aside { position: static; height: auto; }
+      main { padding: 18px; }
+      .two, .three, .four { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <aside>
+      <h1>EDI Integration Architecture</h1>
+      <nav>
+        <a href="#overview">Overview</a>
+        <a href="#components">Components</a>
+        <a href="#flow">Blinkit PO Flow</a>
+        <a href="#states">State Machines</a>
+        <a href="#data">Data Model</a>
+        <a href="#plugins">Plugins</a>
+        <a href="#validation">Validation</a>
+        <a href="#scale">Scale</a>
+        <a href="#asn">ASN Poller</a>
+        <a href="#amendment">Amendment</a>
+        <a href="#ops">Ops</a>
+      </nav>
+    </aside>
+    <main>
+      <header id="overview">
+        <h2>EDI Integration Platform</h2>
+        <p>
+          Multi-platform, multi-vendor, multi-seller document workflow platform. Blinkit/partnersbiz is first platform.
+          Core owns state, idempotency, validation, audit, retries, and traceability. Plugins own partner/API/ERP specifics.
+        </p>
+        <div>
+          <span class="pill">Postgres</span>
+          <span class="pill">RabbitMQ</span>
+          <span class="pill">Object Store</span>
+          <span class="pill">DB Workflow</span>
+          <span class="pill">KEDA Workers</span>
+          <span class="pill">OpenTelemetry</span>
+        </div>
+      </header>
+
+      <section id="components">
+        <h3>1. Complete Component Architecture</h3>
+        <pre class="mermaid">
+flowchart TB
+  subgraph Edge["Edge Layer: stateless"]
+    API["Webhook/API Gateway"]
+    Auth["Auth Guard\nApi-Key, IP allowlist, tenant lookup"]
+    Raw["Raw Event Writer"]
+    Idem["Idempotency Service"]
+  end
+
+  subgraph Rabbit["RabbitMQ"]
+    IngestQ["edi.ingestion"]
+    ErpQ["edi.actions.erp"]
+    PartnerQ["edi.actions.partner"]
+    NotifyQ["edi.actions.notification"]
+    RetryQ["edi.retry"]
+    DLQ["edi.dlq"]
+  end
+
+  subgraph Core["Core"]
+    PartnerRuntime["Partner Plugin Runtime"]
+    Canonical["Canonical Document Service"]
+    Config["Config Resolver"]
+    Workflow["Workflow Engine"]
+    Approval["Approval Engine"]
+    Outbox["Transactional Outbox"]
+    Retry["Retry Scheduler"]
+    Poller["ASN Poller"]
+  end
+
+  subgraph PluginLayer["Plugins"]
+    Blinkit["Blinkit Partner Plugin"]
+    ValidationAction["Validation Action\nruleset_engine"]
+    ERP["ERP Plugin\npunch_po, get_asn_details"]
+    Sheet["Sheet Sync"]
+    Ack["Blinkit PO Ack"]
+    ASN["Blinkit ASN Sync"]
+    Amend["Blinkit Amendment"]
+    Notify["Notification"]
+  end
+
+  subgraph Store["Persistence"]
+    PG["Postgres"]
+    OBJ["Object Store"]
+    Secret["Secrets Manager"]
+    Trace["Logs / Metrics / Traces"]
+  end
+
+  API --> Auth --> Raw --> Idem --> IngestQ
+  Raw --> OBJ
+  IngestQ --> PartnerRuntime --> Blinkit --> Canonical --> Workflow
+  Config --> Workflow
+  Workflow --> Approval
+  Workflow --> Outbox
+  Outbox --> ErpQ
+  Outbox --> PartnerQ
+  Outbox --> NotifyQ
+  PartnerQ --> ValidationAction --> Workflow
+  ErpQ --> ERP --> Workflow
+  PartnerQ --> Ack --> Workflow
+  PartnerQ --> ASN --> Workflow
+  PartnerQ --> Amend --> Workflow
+  NotifyQ --> Notify --> Workflow
+  Retry --> RetryQ --> ErpQ
+  Retry --> PartnerQ
+  Workflow --> Poller --> ERP
+  Core --> PG
+  PluginLayer --> Secret
+  PluginLayer --> OBJ
+  Edge --> Trace
+  Core --> Trace
+  PluginLayer --> Trace
+  DLQ --> PG
+        </pre>
+      </section>
+
+      <section id="flow">
+        <h3>2. Blinkit PO Flow With Tech</h3>
+        <pre class="mermaid">
+sequenceDiagram
+  autonumber
+  participant B as Blinkit
+  participant API as API Service
+  participant PG as Postgres
+  participant S3 as Object Store
+  participant MQ as RabbitMQ
+  participant DW as Document Worker
+  participant BP as Blinkit Plugin
+  participant WF as Workflow Engine
+  participant AW as Action Worker
+  participant ERP as ERP
+  participant PB as partnersbiz
+
+  B->>API: POST /webhooks/blinkit/po
+  API->>API: Check Api-Key + IP allowlist
+  API->>S3: Save raw request body
+  API->>PG: Insert raw_event
+  API->>PG: Insert idempotency_key
+  API->>MQ: Publish edi.ingestion aggregate_key
+  MQ->>DW: Consume message
+  DW->>PG: Lock aggregate row / optimistic version
+  DW->>BP: Parse Blinkit payload
+  BP-->>DW: Canonical PurchaseOrder
+  DW->>WF: Create workflow_run from published DAG
+  WF->>PG: documents, versions, state_transitions, domain_events
+  WF->>PG: outbox validation action from seller workflow config
+  PG-->>MQ: Outbox dispatcher publishes action jobs
+  MQ->>AW: Validation action job
+  AW->>AW: Run validation.ruleset_engine with effective ruleset
+  AW->>WF: validation action result
+  WF->>PG: workflow_node_run success/rejected
+  WF->>PG: outbox destination action if validation success
+  PG-->>MQ: Publish configured action job
+  MQ->>AW: Configured action job
+  AW->>ERP: optional destination action, e.g. ERP punch or sheet sync
+  ERP-->>AW: normalized action result
+  AW->>WF: action result
+  WF->>PG: action_attempt success
+  WF->>PG: outbox action blinkit.po_ack
+  PG-->>MQ: Publish partner action
+  MQ->>AW: PO ack job
+  AW->>PB: POST /po/acknowledgement
+  PB-->>AW: acknowledged
+  AW->>WF: ack result
+  WF->>PG: workflow completed, create asn_job if configured
+        </pre>
+      </section>
+
+      <section id="states">
+        <h3>3. State Machines</h3>
+        <p>State is split by ownership. Document state stays generic; validation, approval, ERP, sheet, ack, ASN, amendment, and notification state lives in workflow node runs, action attempts, and approval tasks.</p>
+        <div class="grid two">
+          <div>
+            <h4>Raw Webhook Event</h4>
+            <pre class="mermaid">
+stateDiagram-v2
+  [*] --> received
+  received --> stored
+  stored --> dedupe_checked
+  dedupe_checked --> duplicate
+  dedupe_checked --> queued
+  queued --> processing
+  processing --> processed
+  processing --> parse_failed
+  processing --> processing_failed
+  processing_failed --> dead_lettered
+  duplicate --> [*]
+  processed --> [*]
+            </pre>
+          </div>
+          <div>
+            <h4>Document + Workflow Run</h4>
+            <pre class="mermaid">
+stateDiagram-v2
+  [*] --> created
+  created --> in_workflow
+  in_workflow --> waiting: approval_or_retry_or_dependency
+  waiting --> in_workflow
+  in_workflow --> completed
+  in_workflow --> blocked
+  in_workflow --> failed
+  in_workflow --> cancelled
+  blocked --> in_workflow: resume_after_review
+  completed --> [*]
+  failed --> [*]
+  cancelled --> [*]
+            </pre>
+          </div>
+          <div>
+            <h4>Workflow Node Run</h4>
+            <pre class="mermaid">
+stateDiagram-v2
+  [*] --> pending
+  pending --> ready: dependencies_satisfied
+  ready --> waiting_for_approval: approval_required
+  waiting_for_approval --> ready: approved
+  waiting_for_approval --> rejected: rejected
+  ready --> running
+  running --> success
+  running --> rejected
+  running --> retry_scheduled
+  retry_scheduled --> ready
+  running --> failed
+  pending --> skipped: condition_false
+  success --> [*]
+  rejected --> [*]
+  failed --> [*]
+  skipped --> [*]
+            </pre>
+          </div>
+          <div>
+            <h4>Action Attempt + Approval</h4>
+            <pre class="mermaid">
+stateDiagram-v2
+  [*] --> approval_pending
+  approval_pending --> approved
+  approval_pending --> approval_rejected
+  approved --> attempt_pending
+  attempt_pending --> running
+  running --> success
+  running --> partial_success
+  running --> rejected
+  running --> retryable_failure
+  retryable_failure --> retry_scheduled
+  retry_scheduled --> attempt_pending
+  running --> permanent_failure
+  retry_scheduled --> dead_lettered
+  success --> [*]
+  partial_success --> [*]
+  rejected --> [*]
+  permanent_failure --> [*]
+  dead_lettered --> [*]
+            </pre>
+          </div>
+          <div>
+            <h4>ASN Job / ASN Document</h4>
+            <pre class="mermaid">
+stateDiagram-v2
+  [*] --> waiting_for_asn
+  waiting_for_asn --> polling_source_plugin
+  polling_source_plugin --> waiting_for_asn: not_ready
+  polling_source_plugin --> asn_data_incomplete
+  asn_data_incomplete --> waiting_for_asn: fixed_or_rescheduled
+  polling_source_plugin --> asn_ready
+  asn_ready --> asn_workflow_running
+  asn_workflow_running --> accepted
+  asn_workflow_running --> partially_accepted
+  asn_workflow_running --> rejected
+  asn_workflow_running --> dead_lettered
+  accepted --> [*]
+  partially_accepted --> [*]
+  rejected --> [*]
+  dead_lettered --> [*]
+            </pre>
+          </div>
+        </div>
+      </section>
+
+      <section id="data">
+        <h3>4. Data Model</h3>
+        <pre class="mermaid">
+erDiagram
+  TENANTS ||--o{ SELLERS : owns
+  TENANTS ||--o{ PLATFORM_ACCOUNTS : configures
+  SELLERS ||--o{ PLATFORM_ACCOUNTS : maps_to
+  PLATFORM_ACCOUNTS ||--o{ CREDENTIALS : has
+  PLATFORM_ACCOUNTS ||--o{ RAW_EVENTS : receives
+  RAW_EVENTS ||--o| DOCUMENTS : creates_or_updates
+  DOCUMENTS ||--o{ DOCUMENT_VERSIONS : versions
+  DOCUMENTS ||--o{ STATE_TRANSITIONS : transitions
+  DOCUMENTS ||--o{ DOMAIN_EVENTS : emits
+  DOCUMENTS ||--o{ WORKFLOW_RUNS : executes
+  WORKFLOW_RUNS ||--o{ WORKFLOW_NODE_RUNS : has
+  WORKFLOW_NODE_RUNS ||--o{ ACTION_ATTEMPTS : attempts
+  WORKFLOW_NODE_RUNS ||--o{ APPROVAL_TASKS : gates
+  ACTION_ATTEMPTS ||--o{ VALIDATION_RESULTS : may_create
+  DOCUMENTS ||--o{ ASN_JOBS : schedules
+  DOCUMENTS ||--o{ DOCUMENT_LINKS : relates
+  ACTION_ATTEMPTS ||--o{ PARTNER_MESSAGES : sends
+  ACTION_ATTEMPTS ||--o{ DEAD_LETTERS : may_create
+  DOMAIN_EVENTS ||--o{ AUDIT_LOG : records
+  WORKFLOW_VERSIONS ||--o{ WORKFLOW_NODES : defines
+  WORKFLOW_VERSIONS ||--o{ WORKFLOW_EDGES : routes
+  PLUGIN_REGISTRY ||--o{ WORKFLOW_NODES : supplies
+        </pre>
+      </section>
+
+      <section id="plugins">
+        <h3>5. Plugin Model</h3>
+        <div class="grid two">
+          <div class="card violet">
+            <h4>Partner Plugin</h4>
+            <ul>
+              <li>Parse partner payload JSON/XML</li>
+              <li>Parse enough contract shape to map payload</li>
+              <li>Map to canonical documents</li>
+              <li>Build partner outbound payloads</li>
+              <li>Map partner errors/warnings</li>
+            </ul>
+          </div>
+          <div class="card violet">
+            <h4>Action Plugin</h4>
+            <ul>
+              <li>Implement one workflow node</li>
+              <li>Can be validation, ERP, sheet, ack, ASN, amendment, notification</li>
+              <li>Prepare request from canonical doc/config</li>
+              <li>Execute external side effect when applicable</li>
+              <li>Interpret response into normalized result</li>
+              <li>Return errors/warnings/status</li>
+              <li>Never mutate document state directly</li>
+            </ul>
+          </div>
+        </div>
+        <pre class="code">ActionPlugin:
+  capabilities()
+  prepare(context)
+  execute(request)
+  interpret(response)
+  compensate(context) optional</pre>
+      </section>
+
+      <section id="validation">
+        <h3>6. Workflow Validation, Inheritance, Approval</h3>
+        <pre class="mermaid">
+flowchart LR
+  Canonical["Canonical Document"] --> Workflow["Workflow Run"]
+  Workflow --> Node["Node: validate_po"]
+  Node --> Plugin["Action Plugin\nvalidation.ruleset_engine"]
+  Plugin --> Ruleset["Effective Ruleset\nGlobal -> Platform -> Vendor -> Seller"]
+  Ruleset --> Findings["Validation Results"]
+  Findings --> OK["node success"]
+  Findings --> Fail["node rejected"]
+  OK --> Next["Next configured action"]
+  Fail --> Review["Manual review / fail edge"]
+        </pre>
+        <div class="grid three">
+          <div class="card blue"><h4>Ruleset</h4><p>Global rules inherited and overridden by platform, vendor, and seller config.</p></div>
+          <div class="card blue"><h4>Approval</h4><p>Every action has a workflow-owned approval gate before plugin execution.</p></div>
+          <div class="card blue"><h4>Edge Policy</h4><p>Drag/drop workflows are validated before publish; unsafe edges are rejected.</p></div>
+        </div>
+      </section>
+
+      <section id="scale">
+        <h3>7. Scale, Duplicates, Same PO</h3>
+        <pre class="mermaid">
+flowchart LR
+  Many["Many platform events"] --> API["Stateless API replicas"]
+  API --> Raw["Raw Event Inbox"]
+  Raw --> Idem["Idempotency unique key"]
+  Idem --> Q["RabbitMQ ingestion"]
+  Q --> Worker["Document workers"]
+  Worker --> Lock["Postgres aggregate lock/version"]
+  Lock --> State["Single state update per PO"]
+  State --> Outbox["Transactional outbox"]
+  Outbox --> Actions["Action queues/workers"]
+        </pre>
+        <table class="table">
+          <tr><th>Case</th><th>Behavior</th></tr>
+          <tr><td>Exact duplicate</td><td>Store raw event, mark duplicate, no new actions.</td></tr>
+          <tr><td>Same PO changed before required side effect</td><td>Create new version and start/restart workflow from configured safe point.</td></tr>
+          <tr><td>Same PO changed after required side effect/workflow completion</td><td>Do not overwrite. Manual review or user-created amendment.</td></tr>
+          <tr><td>Concurrent same PO events</td><td>Same aggregate key, Postgres lock/version serializes updates.</td></tr>
+          <tr><td>Slow external API</td><td>Action queue/retry handles it; ingestion continues.</td></tr>
+        </table>
+      </section>
+
+      <section id="asn">
+        <h3>8. ASN Poller</h3>
+        <pre class="mermaid">
+flowchart LR
+  POClosed["Workflow completed"] --> Job["Create asn_job if configured"]
+  Job --> Due["next_poll_at due"]
+  Due --> ERP["ASN source plugin\nERP by default"]
+  ERP --> NotReady["not_ready"]
+  NotReady --> Reschedule["Backoff + next_poll_at"]
+  ERP --> Incomplete["data_incomplete"]
+  Incomplete --> Review["Ops review / reschedule"]
+  ERP --> Ready["ASN data ready"]
+  Ready --> Canonical["Canonical ASN"]
+  Canonical --> Workflow["ASN workflow run"]
+  Workflow --> Validate["Validation action"]
+  Validate --> Send["ASN sync action\npartnersbiz"]
+  Send --> Terminal["accepted / partial / rejected"]
+        </pre>
+        <p>ASN can happen days after the PO webhook is processed. Polling state lives in Postgres, not memory.</p>
+      </section>
+
+      <section id="amendment">
+        <h3>9. Amendment Flow</h3>
+        <pre class="mermaid">
+flowchart LR
+  User["User in UI"] --> Create["Create POAmendment"]
+  Create --> Workflow["Amendment workflow run"]
+  Workflow --> Validate["Validation action\nitem/upc/mrp/uom/po_numbers"]
+  Validate --> Action["Blinkit amendment action"]
+  Action --> API["POST partnersbiz /po/amendment"]
+  API --> Result["accepted / partial / rejected"]
+  Result --> Link["Link amendment to affected PO(s)"]
+        </pre>
+        <p>Amendments are separate documents. Original PO is not silently overwritten.</p>
+      </section>
+
+      <section id="ops">
+        <h3>10. Operations and Guarantees</h3>
+        <div class="grid four">
+          <div class="card green"><h4>Search</h4><p>Find by PO, invoice, trace id, seller, platform.</p></div>
+          <div class="card green"><h4>Retry</h4><p>Retry ERP, ack, ASN, amendment, notification actions.</p></div>
+          <div class="card green"><h4>Replay</h4><p>Replay raw event with audit link to original.</p></div>
+          <div class="card green"><h4>Amend</h4><p>Create PO amendment from UI.</p></div>
+        </div>
+        <p>
+          <span class="pill">Raw preserved</span>
+          <span class="pill">Idempotent ingestion</span>
+          <span class="pill">One writer per PO</span>
+          <span class="pill">Workflow owns state</span>
+          <span class="pill">Retry + DLQ</span>
+          <span class="pill">Audit every transition</span>
+          <span class="pill">Plugin isolation</span>
+        </p>
+      </section>
+    </main>
+  </div>
+</body>
+</html>

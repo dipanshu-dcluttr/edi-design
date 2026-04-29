@@ -1,0 +1,1183 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>PO to ASN Runtime Flow</title>
+  <script src="https://unpkg.com/cytoscape@3.28.1/dist/cytoscape.min.js"></script>
+  <script src="https://unpkg.com/dagre@0.8.5/dist/dagre.min.js"></script>
+  <script src="https://unpkg.com/cytoscape-dagre@2.5.0/cytoscape-dagre.js"></script>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #090b0f;
+      --panel: #101721;
+      --panel-2: #141f2d;
+      --panel-3: #1a2635;
+      --ink: #edf4fb;
+      --muted: #a8b5c4;
+      --line: #2a394b;
+      --green: #59d798;
+      --teal: #55d6c2;
+      --blue: #6ab7ff;
+      --amber: #f1ba63;
+      --red: #ff6f7d;
+      --violet: #b59cff;
+      --code: #071019;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(135deg, rgba(85, 214, 194, .08), transparent 34rem),
+        linear-gradient(215deg, rgba(241, 186, 99, .08), transparent 30rem),
+        var(--bg);
+      color: var(--ink);
+      font: 14px/1.55 ui-sans-serif, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 300px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .rail {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      border-right: 1px solid var(--line);
+      background: rgba(8, 12, 17, .94);
+      padding: 22px 18px;
+    }
+
+    .brand {
+      color: var(--teal);
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+
+    .summary {
+      margin: 12px 0 18px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .navlink {
+      display: block;
+      color: var(--muted);
+      text-decoration: none;
+      padding: 8px 10px;
+      border-left: 2px solid transparent;
+      border-radius: 6px;
+    }
+
+    .navlink:hover {
+      color: var(--ink);
+      background: #142031;
+      border-left-color: var(--teal);
+    }
+
+    main {
+      padding: 34px min(5vw, 68px) 80px;
+      max-width: 1500px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(32px, 5vw, 66px);
+      line-height: .98;
+      letter-spacing: -.035em;
+      max-width: 980px;
+    }
+
+    h2 {
+      margin: 54px 0 16px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+      font-size: 27px;
+      letter-spacing: -.015em;
+    }
+
+    h3 {
+      margin: 28px 0 12px;
+      color: #dbfbf5;
+      font-size: 18px;
+    }
+
+    p { color: #d8e2ee; }
+    code {
+      background: #101b28;
+      border: 1px solid #25354a;
+      color: #c9fff2;
+      padding: 1px 5px;
+      border-radius: 5px;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr);
+      gap: 18px;
+      margin-top: 24px;
+    }
+
+    .panel {
+      background: linear-gradient(180deg, rgba(20, 31, 45, .96), rgba(12, 18, 26, .98));
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      box-shadow: 0 26px 80px rgba(0, 0, 0, .28);
+    }
+
+    .panel.pad { padding: 18px; }
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .metric {
+      border: 1px solid #29394d;
+      border-radius: 8px;
+      padding: 12px;
+      background: #101824;
+    }
+
+    .metric b {
+      display: block;
+      color: var(--ink);
+      font-size: 19px;
+    }
+
+    .metric span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .graph-wrap { padding: 12px; }
+    #flowGraph {
+      height: 720px;
+      border-radius: 8px;
+      background: #071018;
+      border: 1px solid #223348;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      border: 1px solid #2b3d52;
+      background: #101926;
+      border-radius: 999px;
+      padding: 5px 9px;
+      color: #d4dfeb;
+      font-size: 12px;
+    }
+
+    .dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 99px;
+      background: var(--teal);
+    }
+
+    .timeline {
+      display: grid;
+      gap: 10px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 42px minmax(0, 1fr);
+      gap: 12px;
+      padding: 13px;
+      border: 1px solid #29394d;
+      background: #101824;
+      border-radius: 8px;
+      cursor: pointer;
+    }
+
+    .step:hover,
+    .step.active {
+      border-color: var(--teal);
+      background: #132131;
+    }
+
+    .num {
+      width: 34px;
+      height: 34px;
+      border-radius: 8px;
+      display: grid;
+      place-items: center;
+      background: #203147;
+      color: #eaf5ff;
+      font-weight: 800;
+    }
+
+    .step strong { display: block; }
+    .step span { color: var(--muted); font-size: 12px; }
+
+    .detail-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .box {
+      border: 1px solid #2a394b;
+      background: #0f1722;
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .box h3 {
+      margin-top: 0;
+      font-size: 15px;
+      color: #f4d393;
+    }
+
+    .box ul {
+      margin: 0;
+      padding-left: 18px;
+      color: #d8e2ee;
+    }
+
+    .box li + li { margin-top: 6px; }
+
+    .data-layout {
+      display: grid;
+      grid-template-columns: 260px minmax(0, 1fr);
+      gap: 14px;
+    }
+
+    .tabs {
+      display: grid;
+      gap: 8px;
+      align-self: start;
+    }
+
+    button.tab {
+      text-align: left;
+      border: 1px solid #2a394b;
+      background: #101824;
+      color: #d7e2ee;
+      border-radius: 8px;
+      padding: 10px 12px;
+      cursor: pointer;
+      font: inherit;
+    }
+
+    button.tab.active,
+    button.tab:hover {
+      border-color: var(--amber);
+      background: #1b2735;
+      color: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: #0f1722;
+      border: 1px solid #2a394b;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+
+    th, td {
+      text-align: left;
+      vertical-align: top;
+      border-bottom: 1px solid #26374a;
+      padding: 10px;
+    }
+
+    th {
+      background: #1a2635;
+      color: #f6d89e;
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    td {
+      color: #d8e2ee;
+      font-size: 13px;
+    }
+
+    pre {
+      margin: 0;
+      overflow: auto;
+      background: var(--code);
+      color: #dce9f6;
+      border: 1px solid #24364b;
+      border-radius: 8px;
+      padding: 14px;
+      max-height: 520px;
+    }
+
+    .queue-grid,
+    .failure-grid,
+    .user-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .queue-card,
+    .failure-card,
+    .user-card {
+      border: 1px solid #2a394b;
+      background: #101824;
+      border-radius: 8px;
+      padding: 14px;
+    }
+
+    .queue-card h3,
+    .failure-card h3,
+    .user-card h3 {
+      margin-top: 0;
+    }
+
+    .muted { color: var(--muted); }
+    .status-ok { color: var(--green); }
+    .status-warn { color: var(--amber); }
+    .status-bad { color: var(--red); }
+
+    @media (max-width: 1100px) {
+      .shell { display: block; }
+      .rail { position: relative; height: auto; }
+      .hero-grid,
+      .detail-grid,
+      .data-layout,
+      .queue-grid,
+      .failure-grid,
+      .user-grid {
+        grid-template-columns: 1fr;
+      }
+      .metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #flowGraph { height: 620px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="rail">
+      <div class="brand">PO to ASN Runtime Flow</div>
+      <div class="summary">
+        Concrete runtime view for Blinkit PO <code>PO-1001</code>, seller <code>seller_123</code>. Shows workflow, queues, tables, payloads, user actions, retries, and ASN generation.
+      </div>
+      <a class="navlink" href="#overview">Overview</a>
+      <a class="navlink" href="#runtime-flow">Runtime Flow</a>
+      <a class="navlink" href="#selected-step">Selected Step Detail</a>
+      <a class="navlink" href="#database-schema">Database schema</a>
+      <a class="navlink" href="#database-rows">Database rows</a>
+      <a class="navlink" href="#queue-schema">Queue schema</a>
+      <a class="navlink" href="#queue-messages">Queue messages</a>
+      <a class="navlink" href="#user-flow">User flow</a>
+      <a class="navlink" href="#failure-paths">Failure paths</a>
+      <a class="navlink" href="#state-model">State model</a>
+    </aside>
+
+    <main>
+      <section id="overview">
+        <h1>PO to ASN runtime flow, with ERP punch, Sheet sync, queues, and database state.</h1>
+        <p>
+          This site visualizes one complete example, not just component boxes. The example assumes Blinkit sends a purchase order webhook, our seller workflow runs validation, performs both ERP punch and sheet sync, sends PO acknowledgement to Blinkit, starts ASN tracking, polls ERP until ASN details are ready, creates a canonical ASN, validates it, and sends ASN to Blinkit.
+        </p>
+        <div class="hero-grid">
+          <div class="panel pad">
+            <h3>Example business document</h3>
+            <p>
+              <code>PO-1001</code> is the external Blinkit PO number. The aggregate key is
+              <code>blinkit:seller_123:purchase_order:PO-1001</code>. Every queue message, workflow row, action attempt, retry, ASN tracking job, and audit entry carries this readable key plus <code>aggregate_key_hash</code> so same-PO processing is serialized and traceable.
+            </p>
+            <div class="metric-grid">
+              <div class="metric"><b>1</b><span>raw PO webhook accepted</span></div>
+              <div class="metric"><b>11</b><span>workflow nodes in PO journey</span></div>
+              <div class="metric"><b>2</b><span>destination actions: ERP and Sheet</span></div>
+              <div class="metric"><b>1</b><span>ASN tracking job persisted for days if needed</span></div>
+            </div>
+          </div>
+          <div class="panel pad">
+            <h3>Design intent</h3>
+          <p>
+            The core workflow engine owns state. Plugins do work. Queues carry work. Postgres records truth. Approval, validation, ERP, sheet, ack, ASN scheduling, ASN source polling, and ASN sync are all workflow actions or infrastructure driven by workflow state.
+          </p>
+          <p>
+            ASN payload creation also freezes onboarding config: seller warehouse, tax profile, item mapping, and ASN source config are captured in an ASN build snapshot before the ASN is sent.
+          </p>
+            <div class="legend">
+              <span class="chip"><span class="dot" style="background:var(--blue)"></span>Core service</span>
+              <span class="chip"><span class="dot" style="background:var(--teal)"></span>Action plugin</span>
+              <span class="chip"><span class="dot" style="background:var(--amber)"></span>Queue</span>
+              <span class="chip"><span class="dot" style="background:var(--violet)"></span>Database</span>
+              <span class="chip"><span class="dot" style="background:var(--red)"></span>Failure/manual path</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="runtime-flow">
+        <h2>End-to-end runtime diagram</h2>
+        <p>
+          Click any node in the diagram or any step in the timeline. The detail section updates to show what data is moving, which queue carries it, which tables change, and what a user/operator can see or do at that point.
+        </p>
+        <div class="panel graph-wrap">
+          <div id="flowGraph"></div>
+          <div class="legend">
+            <span class="chip"><span class="dot" style="background:var(--blue)"></span>state owner/core</span>
+            <span class="chip"><span class="dot" style="background:var(--teal)"></span>plugin/action</span>
+            <span class="chip"><span class="dot" style="background:var(--amber)"></span>RabbitMQ queue</span>
+            <span class="chip"><span class="dot" style="background:var(--violet)"></span>Postgres rows</span>
+            <span class="chip"><span class="dot" style="background:var(--red)"></span>manual/failure branch</span>
+          </div>
+        </div>
+      </section>
+
+      <section id="selected-step">
+        <h2>Selected step detail</h2>
+        <div class="hero-grid">
+          <div class="panel pad">
+            <div class="timeline" id="timeline"></div>
+          </div>
+          <div class="panel pad">
+            <h3 id="stepTitle">Step detail</h3>
+            <p id="stepNarrative"></p>
+            <div class="detail-grid">
+              <div class="box">
+                <h3>Data flow</h3>
+                <ul id="stepDataFlow"></ul>
+              </div>
+              <div class="box">
+                <h3>Tables touched</h3>
+                <ul id="stepTables"></ul>
+              </div>
+              <div class="box">
+                <h3>Queue/message</h3>
+                <ul id="stepQueues"></ul>
+              </div>
+              <div class="box">
+                <h3>User or ops visibility</h3>
+                <ul id="stepUser"></ul>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="database-schema">
+        <h2>Database table schema</h2>
+        <p>
+          The schema is split between immutable evidence, runtime state, action execution, and long-running jobs. The important design rule is that queues never become the source of truth. A queue message only points to these rows; the worker locks the row, verifies state, executes, and writes the next state transition.
+        </p>
+        <div class="data-layout">
+          <div class="tabs" id="schemaTabs"></div>
+          <div class="panel pad">
+            <h3 id="schemaTitle">Table schema</h3>
+            <div id="schemaTable"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="database-rows">
+        <h2>Database rows after the happy path</h2>
+        <p>
+          These rows show how the same business event becomes traceable state. IDs are shortened for readability, but the relationships are accurate: raw event creates document/version, document creates workflow run, workflow run creates node runs, node runs create action attempts, action attempts create validation results, partner messages, approval tasks, and ASN tracking jobs.
+        </p>
+        <div class="data-layout">
+          <div class="tabs" id="dbTabs"></div>
+          <div class="panel pad">
+            <h3 id="dbTitle">Database rows</h3>
+            <div id="dbTable"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="queue-schema">
+        <h2>Queue schema and routing contract</h2>
+        <p>
+          The queue schema is deliberately thin. Messages include the identity needed to find durable state and execute exactly one unit of work. Large payloads stay in object storage or Postgres references. Retry, DLQ, and replay behavior is driven by action attempt state, not by mutating business data from the queue consumer.
+        </p>
+        <div class="data-layout">
+          <div class="tabs" id="queueSchemaTabs"></div>
+          <div class="panel pad">
+            <h3 id="queueSchemaTitle">Queue contract</h3>
+            <div id="queueSchemaTable"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="queue-messages">
+        <h2>Queue messages</h2>
+        <p>
+          Queue messages are not state. They are commands to workers. The durable state lives in Postgres. Each message carries IDs that let the worker lock the correct row, detect stale attempts, and resume safely after retry.
+        </p>
+        <div class="queue-grid" id="queueCards"></div>
+      </section>
+
+      <section id="user-flow">
+        <h2>User flow and operator visibility</h2>
+        <p>
+          The UI should not show low-level internals first. It should show a PO journey with drill-down into state, payloads, queue messages, retries, approvals, and ASN tracking jobs. The system keeps internal state detailed enough for engineering while presenting seller operators with clear actions.
+        </p>
+        <div class="user-grid" id="userCards"></div>
+      </section>
+
+      <section id="failure-paths">
+        <h2>Failure paths</h2>
+        <p>
+          Failure handling is scoped to the failed unit of work. If sheet sync fails, ERP punch is not repeated. If ASN is not ready, no worker stays alive; `asn_tracking_jobs.next_poll_at` moves forward. If a duplicate PO arrives, no workflow action runs again.
+        </p>
+        <div class="failure-grid" id="failureCards"></div>
+      </section>
+
+      <section id="state-model">
+        <h2>State model summary</h2>
+        <div class="detail-grid">
+          <div class="box">
+            <h3>Raw event state</h3>
+            <ul>
+              <li><code>received</code>: webhook stored before parsing.</li>
+              <li><code>queued</code>: ingestion message created.</li>
+              <li><code>processed</code>: canonical document accepted.</li>
+              <li><code>duplicate</code>: exact same idempotency key or payload hash already processed.</li>
+              <li><code>parse_failed</code>: partner plugin could not map payload.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Workflow/action state</h3>
+            <ul>
+              <li><code>workflow_runs</code> represent one execution of a published workflow version.</li>
+              <li><code>workflow_node_runs</code> represent each node: validation, ERP, sheet, ack, ASN schedule.</li>
+              <li><code>action_attempts</code> represent one plugin attempt with retry and idempotency data.</li>
+              <li>Approval is <code>approval.manual_decision</code>, a normal action node.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>ASN tracking job state</h3>
+            <ul>
+              <li><code>waiting_for_asn</code>: PO workflow has scheduled ASN tracking.</li>
+              <li><code>poll_due</code>: poller can enqueue ASN source action.</li>
+              <li><code>not_ready</code>: ERP says ASN details are not ready; reschedule.</li>
+              <li><code>ready</code>: canonical ASN can be created.</li>
+              <li><code>completed</code>: ASN workflow accepted by Blinkit.</li>
+            </ul>
+          </div>
+          <div class="box">
+            <h3>Same PO ordering</h3>
+            <ul>
+              <li>All events for <code>PO-1001</code> share one aggregate key.</li>
+              <li>Document worker locks the aggregate before changing document/workflow state.</li>
+              <li>Exact duplicates are marked duplicate.</li>
+              <li>Changed same-PO payload creates a new document version or manual review depending on side effects already completed.</li>
+            </ul>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const aggregateKey = "blinkit:seller_123:purchase_order:PO-1001";
+    const aggregateKeyHash = "sha256:7b8f4e...";
+    const traceId = "trc_po_1001_20260429";
+
+    const steps = [
+      {
+        id: "webhook",
+        title: "Blinkit PO webhook received",
+        subtitle: "Public API accepts payload and stores raw event before parsing",
+        narrative: "Blinkit sends PO-1001 to our webhook. We authenticate the call, generate a trace id, compute a payload hash and non-unique dedupe key, and store the raw payload exactly as received. No parser, dedupe decision, or workflow logic is allowed to run before raw persistence.",
+        dataFlow: ["Inbound HTTP payload from Blinkit", "Generated traceId " + traceId, "Computed aggregateKey " + aggregateKey, "Computed aggregateKeyHash " + aggregateKeyHash, "Computed dedupeKey blinkit:purchase_order:PO-1001:sha256:9b21...", "Payload stored in object store using rawPayloadRef"],
+        tables: ["raw_events append-only insert", "audit_events insert"],
+        queues: ["No action queue yet", "Outbox or direct publish will create edi.ingestion after DB commit"],
+        user: ["Ops can see PO received even if parser later fails", "Raw payload permission controls who can inspect original Blinkit JSON"]
+      },
+      {
+        id: "ingestion",
+        title: "Ingestion message created",
+        subtitle: "RabbitMQ carries rawEventId to document worker",
+        narrative: "The system publishes an ingestion command. This message is intentionally small. It points to durable DB rows, so if the worker crashes, the message can be retried without losing the payload.",
+        dataFlow: ["rawEventId raw_evt_001", "aggregateKey carried for readable trace", "aggregateKeyHash carried for lock/routing", "platformCode blinkit", "documentType purchase_order"],
+        tables: ["outbox insert status=pending", "outbox update status=dispatched"],
+        queues: ["routing key ingestion.blinkit.purchase_order.created", "queue edi.ingestion"],
+        user: ["Queue age appears in ops dashboard", "High ingestion age means PO is stored but not yet converted into canonical document"]
+      },
+      {
+        id: "canonical",
+        title: "Canonical PO created",
+        subtitle: "Blinkit parser maps platform payload into internal PurchaseOrder",
+        narrative: "The document worker locks using aggregate_key_hash, keeps aggregate_key for debugging, loads the raw event, runs the Blinkit partner parser, checks table-owned document/version uniqueness, detects duplicates or changed payload, and creates the canonical PO document and version.",
+        dataFlow: ["Blinkit fields mapped to canonical purchase_order.v1", "External PO number becomes externalDocumentId PO-1001", "Line SKUs normalized", "Payload hash saved for duplicate/change detection"],
+        tables: ["documents insert", "document_versions insert", "raw_events update status=processed", "state_transitions append"],
+        queues: ["No plugin action yet", "Workflow run creation will create outbox rows for ready nodes"],
+        user: ["PO appears in seller UI as In workflow", "User sees canonical PO summary independent of Blinkit field names"]
+      },
+      {
+        id: "workflow",
+        title: "Workflow run created",
+        subtitle: "Published seller workflow and effective config snapshot are frozen",
+        narrative: "The config resolver finds seller_123's Blinkit PO workflow. It freezes workflow version, ruleset version, plugin config versions, approval policy versions, retry policy versions, and provider selections. Future config changes do not affect this running PO.",
+        dataFlow: ["workflowVersionId wf_blinkit_po_seller_123_v12", "rulesetVersionId rules_seller_123_po_v9", "ERP provider erp.simulator or real ERP", "Sheet provider sheet.simulator or Google Sheet"],
+        tables: ["resolved_config_snapshots insert", "workflow_runs insert", "workflow_node_runs insert validate_po ready", "outbox insert action.validation.ruleset_engine"],
+        queues: ["queue edi.actions.validation receives validate_po action"],
+        user: ["Workflow diagram in UI shows exact version used", "Audit can later prove which rules and plugin configs ran"]
+      },
+      {
+        id: "validation",
+        title: "Validation action runs",
+        subtitle: "validation.ruleset_engine evaluates inherited effective ruleset",
+        narrative: "Validation is not pre-workflow logic. It is a workflow action. The worker locks validate_po, loads the frozen effective ruleset, checks required fields, Blinkit contract rules, SKU references, and seller custom warnings.",
+        dataFlow: ["Canonical PO snapshot passed to ruleset engine", "Global + platform + vendor + seller rules merged", "Findings written even when workflow continues"],
+        tables: ["action_attempts insert plugin=validation.ruleset_engine", "validation_results insert status=success", "workflow_node_runs update validate_po success", "state_transitions append"],
+        queues: ["edi.actions.validation consumed", "Workflow creates next action outbox rows for ERP and Sheet branches"],
+        user: ["UI shows validation passed with warnings if any", "Rejected validation would route to manual review instead of ERP/Sheet"]
+      },
+      {
+        id: "erp",
+        title: "ERP punch action",
+        subtitle: "erp.punch_po creates PO in seller ERP",
+        narrative: "ERP punch is a plugin action selected by seller workflow. It is not a PO lifecycle state. The plugin builds ERP-specific payload from canonical PO and frozen seller ERP config, calls ERP, and stores request and response references.",
+        dataFlow: ["Canonical PO converted to ERP purchase order payload", "Idempotency key action_attempt_id used for safe retry", "ERP returns externalReference ERP-PO-9001"],
+        tables: ["workflow_node_runs update erp_punch running/success", "action_attempts insert plugin=erp.punch_po", "partner_messages insert outbound ERP request/response", "state_transitions append"],
+        queues: ["routing key action.erp.punch_po", "queue edi.actions.erp"],
+        user: ["Seller sees ERP Punch complete", "Retry button only retries ERP punch if it failed", "ERP reference is shown as ERP-PO-9001"]
+      },
+      {
+        id: "sheet",
+        title: "Sheet sync action",
+        subtitle: "sheet.sync_po writes same PO into configured sheet",
+        narrative: "Sheet sync runs as a separate destination action in the same workflow. It can run after validation in parallel with ERP or after ERP depending on workflow edges. In this example, both ERP and sheet are required before PO ack.",
+        dataFlow: ["Canonical PO flattened into sheet rows", "Sheet row includes PO number, SKU, quantity, delivery date, ERP reference placeholder if available", "Sheet provider writes to seller-123-po-sync"],
+        tables: ["workflow_node_runs update sheet_sync success", "action_attempts insert plugin=sheet.sync_po", "partner_messages insert sheet provider request/response"],
+        queues: ["routing key action.sheet.sync_po", "queue edi.actions.sheet"],
+        user: ["Seller ops can inspect the synced sheet row", "Sheet failure does not rerun ERP punch"]
+      },
+      {
+        id: "ack",
+        title: "Blinkit PO ack action",
+        subtitle: "PO acknowledgement sent after required destination actions complete",
+        narrative: "Workflow edges require validation, ERP punch, and sheet sync to succeed before PO acknowledgement. The Blinkit action plugin builds the partner ack payload and sends it to partnersbiz.",
+        dataFlow: ["PO-1001 ack status ACCEPTED", "ERP reference and sheet sync status can be included in internal metadata", "Blinkit response stored as partner message"],
+        tables: ["workflow_node_runs update blinkit_po_ack success", "action_attempts insert plugin=blinkit.po_ack", "partner_messages insert Blinkit ack request/response"],
+        queues: ["routing key action.partner.blinkit.po_ack", "queue edi.actions.partner"],
+        user: ["PO ack status visible to ops", "Ack failure retries only ack action"]
+      },
+      {
+        id: "asnSchedule",
+        title: "ASN tracking action creates tracking job",
+        subtitle: "schedule_asn_tracking persists long-running wait for ASN details",
+        narrative: "ASN tracking creation is a short workflow action. It does not call ERP in a long-running request. It creates a durable asn_tracking_jobs row with next_poll_at and max_poll_until. The PO workflow can complete while ASN tracking continues independently.",
+        dataFlow: ["PO completion context becomes ASN tracking config", "ASN source plugin selected as erp.get_asn_details", "next_poll_at set to configured first check time"],
+        tables: ["workflow_node_runs update schedule_asn_tracking success", "action_attempts insert plugin=edi.schedule_asn_tracking", "asn_tracking_jobs insert status=waiting"],
+        queues: ["routing key action.edi.schedule_asn_tracking", "later queue edi.asn.tracking.due"],
+        user: ["UI shows ASN tracking Scheduled", "Ops can click Poll now if allowed"]
+      },
+      {
+        id: "asnPoll",
+        title: "ASN poller calls ERP ASN source",
+        subtitle: "Due ASN tracking job becomes short worker execution",
+        narrative: "A scheduled poller finds due asn_tracking_jobs and enqueues/calls the configured ASN source plugin. If ERP says ASN is not ready, the job is rescheduled. This can repeat for days without holding an action worker open.",
+        dataFlow: ["asnTrackingJobId asn_tracking_job_001", "ERP get_asn_details(PO-1001)", "Result not_ready, incomplete, or ready", "Poll count and next_poll_at updated"],
+        tables: ["asn_tracking_jobs update attempt_count", "asn_tracking_job_attempts insert source response refs", "asn_tracking_jobs update next_poll_at or status=ready"],
+        queues: ["routing key asn_tracking.poll.erp", "queue edi.asn.tracking.due", "optional edi.retry for transient failures"],
+        user: ["ASN age and next poll time shown in UI", "Overdue ASN appears in ops queue"]
+      },
+      {
+        id: "asnDoc",
+        title: "Canonical ASN and ASN workflow",
+        subtitle: "ERP ASN details become linked canonical ASN document",
+        narrative: "When ERP returns complete ASN data, we resolve seller location, tax profile, item mappings, platform brand ids, and ASN source config, freeze them in asn_build_snapshots, then create a canonical ASN document linked to PO-1001. ASN has its own workflow: validate ASN, optionally approve, send ASN to Blinkit, and store partner response.",
+        dataFlow: ["ERP ASN details mapped to canonical asn.v1", "Seller warehouse/tax/item/brand config resolved", "ASN lines reference PO lines, Blinkit item_id, and internal brand_id", "Invoice, shipment, quantity, expiry/batch fields normalized"],
+        tables: ["asn_build_snapshots insert config/state inputs", "documents insert type=asn", "document_versions insert ASN v1", "workflow_runs insert ASN workflow", "workflow_node_runs insert validate_asn ready"],
+        queues: ["queue edi.actions.validation for ASN validation", "then edi.actions.partner for Blinkit ASN sync"],
+        user: ["User sees ASN generated from ERP details", "Missing fields route to ASN data incomplete review"]
+      },
+      {
+        id: "asnSync",
+        title: "Blinkit ASN sync action",
+        subtitle: "validated ASN is sent to Blinkit partnersbiz",
+        narrative: "The ASN sync plugin builds the Blinkit ASN API payload from canonical ASN and sends it. Accepted, partial, or rejected partner responses are stored and drive terminal workflow state or review.",
+        dataFlow: ["Canonical ASN converted to Blinkit ASN payload", "Partner response accepted with asnReference BLK-ASN-777", "ASN status becomes accepted"],
+        tables: ["action_attempts insert plugin=blinkit.asn_sync", "partner_messages insert ASN request/response", "workflow_runs update ASN workflow completed", "asn_tracking_jobs update created_asn"],
+        queues: ["routing key action.partner.blinkit.asn_sync", "queue edi.actions.partner"],
+        user: ["ASN accepted visible on PO journey", "Partial acceptance shows item-level failures and retry/amend options"]
+      }
+    ];
+
+    const dbTables = {
+      raw_events: [
+        { id: "raw_evt_001", platform_code: "blinkit", seller_id: "seller_123", doc_type: "purchase_order", external_doc_id: "PO-1001", aggregate_key: aggregateKey, aggregate_key_hash: aggregateKeyHash, dedupe_key: "blinkit:purchase_order:PO-1001:sha256:9b21...", duplicate_of: null, status: "processed", payload_hash: "sha256:9b21...", trace_id: traceId }
+      ],
+      documents: [
+        { id: "doc_po_001", document_type: "purchase_order", platform_code: "blinkit", seller_id: "seller_123", external_document_id: "PO-1001", current_version_id: "doc_ver_po_001", state: "completed", aggregate_key: aggregateKey, aggregate_key_hash: aggregateKeyHash },
+        { id: "doc_asn_001", document_type: "asn", platform_code: "blinkit", seller_id: "seller_123", external_document_id: "ASN-PO-1001-01", current_version_id: "doc_ver_asn_001", state: "accepted", aggregate_key: "blinkit:seller_123:asn:ASN-PO-1001-01", aggregate_key_hash: "sha256:31aa..." }
+      ],
+      document_versions: [
+        { id: "doc_ver_po_001", document_id: "doc_po_001", version: 1, schema_version: "purchase_order.v1", source_raw_event_id: "raw_evt_001", payload_hash: "sha256:9b21...", canonical_ref: "obj://canonical/po/PO-1001/v1.json" },
+        { id: "doc_ver_asn_001", document_id: "doc_asn_001", version: 1, schema_version: "asn.v1", source: "erp.get_asn_details", canonical_ref: "obj://canonical/asn/ASN-PO-1001-01/v1.json" }
+      ],
+      workflow_runs: [
+        { id: "wf_run_po_001", document_id: "doc_po_001", workflow_version_id: "wf_blinkit_po_seller_123_v12", state: "completed", resolved_config_snapshot_id: "cfg_snap_001", started_at: "2026-04-29T10:00:04Z", completed_at: "2026-04-29T10:01:18Z" },
+        { id: "wf_run_asn_001", document_id: "doc_asn_001", workflow_version_id: "wf_blinkit_asn_seller_123_v4", state: "completed", resolved_config_snapshot_id: "cfg_snap_002", started_at: "2026-05-01T07:30:12Z", completed_at: "2026-05-01T07:30:49Z" }
+      ],
+      workflow_node_runs: [
+        { id: "node_validate_po", workflow_run_id: "wf_run_po_001", node_key: "validate_po", plugin_id: "validation.ruleset_engine", status: "success" },
+        { id: "node_erp", workflow_run_id: "wf_run_po_001", node_key: "erp_punch", plugin_id: "erp.punch_po", status: "success" },
+        { id: "node_sheet", workflow_run_id: "wf_run_po_001", node_key: "sheet_sync", plugin_id: "sheet.sync_po", status: "success" },
+        { id: "node_ack", workflow_run_id: "wf_run_po_001", node_key: "blinkit_po_ack", plugin_id: "blinkit.po_ack", status: "success" },
+        { id: "node_asn_schedule", workflow_run_id: "wf_run_po_001", node_key: "schedule_asn_tracking", plugin_id: "edi.schedule_asn_tracking", status: "success" },
+        { id: "node_validate_asn", workflow_run_id: "wf_run_asn_001", node_key: "validate_asn", plugin_id: "validation.ruleset_engine", status: "success" },
+        { id: "node_asn_sync", workflow_run_id: "wf_run_asn_001", node_key: "blinkit_asn_sync", plugin_id: "blinkit.asn_sync", status: "success" }
+      ],
+      action_attempts: [
+        { id: "act_validate_po_1", workflow_node_run_id: "node_validate_po", plugin_id: "validation.ruleset_engine", status: "success", attempt: 1, idempotency_key: "act_validate_po_1" },
+        { id: "act_erp_1", workflow_node_run_id: "node_erp", plugin_id: "erp.punch_po", status: "success", attempt: 1, external_reference: "ERP-PO-9001" },
+        { id: "act_sheet_1", workflow_node_run_id: "node_sheet", plugin_id: "sheet.sync_po", status: "success", attempt: 1, external_reference: "sheet:seller-123-po-sync:row:782" },
+        { id: "act_ack_1", workflow_node_run_id: "node_ack", plugin_id: "blinkit.po_ack", status: "success", attempt: 1, external_reference: "BLK-ACK-556" },
+        { id: "act_asn_schedule_1", workflow_node_run_id: "node_asn_schedule", plugin_id: "edi.schedule_asn_tracking", status: "success", attempt: 1, external_reference: "asn_tracking_job_001" },
+        { id: "act_asn_sync_1", workflow_node_run_id: "node_asn_sync", plugin_id: "blinkit.asn_sync", status: "success", attempt: 1, external_reference: "BLK-ASN-777" }
+      ],
+      validation_results: [
+        { id: "val_po_001", workflow_node_run_id: "node_validate_po", ruleset_version_id: "rules_seller_123_po_v9", status: "success", errors: 0, warnings: 1, finding: "seller_min_order_value warning" },
+        { id: "val_asn_001", workflow_node_run_id: "node_validate_asn", ruleset_version_id: "rules_blinkit_asn_v3", status: "success", errors: 0, warnings: 0, finding: "none" }
+      ],
+      approval_tasks: [
+        { id: "approval_none_po_1001", status: "not_created", explanation: "This workflow has approval disabled for ERP and sheet. If enabled, an approval.manual_decision node would create approval_tasks before or after target action." }
+      ],
+      asn_tracking_jobs: [
+        { id: "asn_tracking_job_001", po_document_id: "doc_po_001", status: "created_asn", source_plugin_id: "erp.get_asn_details", next_poll_at: "2026-05-01T07:30:00Z", attempt_count: 4, max_poll_until: "2026-05-09T10:01:18Z", created_by_workflow_node_run_id: "node_asn_schedule" }
+      ],
+      partner_messages: [
+        { id: "msg_erp_po", action_attempt_id: "act_erp_1", system: "erp", direction: "outbound", status: "200", ref: "obj://messages/erp-po-9001.json" },
+        { id: "msg_sheet_po", action_attempt_id: "act_sheet_1", system: "sheet", direction: "outbound", status: "200", ref: "obj://messages/sheet-row-782.json" },
+        { id: "msg_blinkit_ack", action_attempt_id: "act_ack_1", system: "blinkit", direction: "outbound", status: "ACCEPTED", ref: "obj://messages/blinkit-ack-556.json" },
+        { id: "msg_erp_asn", action_attempt_id: "poll_asn_4", system: "erp", direction: "lookup", status: "READY", ref: "obj://messages/erp-asn-ready.json" },
+        { id: "msg_blinkit_asn", action_attempt_id: "act_asn_sync_1", system: "blinkit", direction: "outbound", status: "ACCEPTED", ref: "obj://messages/blinkit-asn-777.json" }
+      ],
+      outbox: [
+        { id: "out_validate", event_type: "action.validation.ruleset_engine", destination_queue: "edi.actions.validation", status: "dispatched", aggregate_key: aggregateKey, aggregate_key_hash: aggregateKeyHash },
+        { id: "out_erp", event_type: "action.erp.punch_po", destination_queue: "edi.actions.erp", status: "dispatched", aggregate_key: aggregateKey, aggregate_key_hash: aggregateKeyHash },
+        { id: "out_sheet", event_type: "action.sheet.sync_po", destination_queue: "edi.actions.sheet", status: "dispatched", aggregate_key: aggregateKey, aggregate_key_hash: aggregateKeyHash },
+        { id: "out_ack", event_type: "action.partner.blinkit.po_ack", destination_queue: "edi.actions.partner", status: "dispatched", aggregate_key: aggregateKey, aggregate_key_hash: aggregateKeyHash },
+        { id: "out_asn", event_type: "action.partner.blinkit.asn_sync", destination_queue: "edi.actions.partner", status: "dispatched", aggregate_key: "blinkit:seller_123:asn:ASN-PO-1001-01", aggregate_key_hash: "sha256:31aa..." }
+      ]
+    };
+
+    const dbSchemas = {
+      raw_events: [
+        { column: "id", type: "uuid", purpose: "Primary key for immutable inbound/outbound payload evidence." },
+        { column: "platform_code", type: "text", purpose: "blinkit, amazon, zepto, or future platform." },
+        { column: "seller_id", type: "uuid/text", purpose: "Resolved internal seller boundary for seller-specific processing." },
+        { column: "doc_type", type: "enum", purpose: "purchase_order, asn, amendment, acknowledgement." },
+        { column: "external_doc_id", type: "text", purpose: "Partner document number such as PO-1001." },
+        { column: "aggregate_key", type: "text", purpose: "Readable ordering/correlation key." },
+        { column: "aggregate_key_hash", type: "text", purpose: "Compact lock/routing key derived from aggregate_key." },
+        { column: "dedupe_key", type: "text", purpose: "Non-unique duplicate detection key. Raw events remain append-only." },
+        { column: "duplicate_of_raw_event_id", type: "uuid", purpose: "Original raw event when this webhook is an exact duplicate." },
+        { column: "payload_hash", type: "text", purpose: "Exact duplicate and changed-payload detection." },
+        { column: "payload_ref", type: "object ref", purpose: "Original payload stored before parsing." },
+        { column: "status", type: "enum", purpose: "received, queued, processed, duplicate, parse_failed, dead_lettered." },
+        { column: "trace_id", type: "text", purpose: "Trace joins logs, queue messages, DB rows, and audit." }
+      ],
+      documents: [
+        { column: "id", type: "uuid", purpose: "Internal document identity." },
+        { column: "document_type", type: "enum", purpose: "purchase_order or asn in this flow." },
+        { column: "platform_code", type: "text", purpose: "Partner/platform source." },
+        { column: "seller_id", type: "uuid/text", purpose: "Resolved internal seller partition and access control." },
+        { column: "external_document_id", type: "text", purpose: "PO number or ASN reference visible to partner." },
+        { column: "current_version_id", type: "uuid", purpose: "Points to latest canonical version." },
+        { column: "state", type: "enum", purpose: "received, in_workflow, completed, failed, accepted." },
+        { column: "aggregate_key", type: "text", purpose: "Readable business key for trace/debug." },
+        { column: "aggregate_key_hash", type: "text", purpose: "Compact lock/routing key for ordered processing." }
+      ],
+      document_versions: [
+        { column: "id", type: "uuid", purpose: "Immutable version identity." },
+        { column: "document_id", type: "uuid", purpose: "Parent document." },
+        { column: "version", type: "int", purpose: "Increments when same business document changes." },
+        { column: "schema_version", type: "text", purpose: "purchase_order.v1 or asn.v1." },
+        { column: "source_raw_event_id", type: "uuid nullable", purpose: "Inbound raw evidence for this version." },
+        { column: "payload_hash", type: "text", purpose: "Canonical payload hash for change tracking." },
+        { column: "canonical_ref", type: "object ref/jsonb", purpose: "Canonical document snapshot." }
+      ],
+      workflow_runs: [
+        { column: "id", type: "uuid", purpose: "One execution of one published workflow." },
+        { column: "document_id", type: "uuid", purpose: "PO or ASN document being processed." },
+        { column: "workflow_version_id", type: "uuid", purpose: "Immutable published workflow version." },
+        { column: "resolved_config_snapshot_id", type: "uuid", purpose: "Frozen rules/plugin/approval/retry config." },
+        { column: "state", type: "enum", purpose: "pending, running, waiting, completed, failed, cancelled." },
+        { column: "started_at/completed_at", type: "timestamp", purpose: "Runtime measurement and SLA." }
+      ],
+      workflow_node_runs: [
+        { column: "id", type: "uuid", purpose: "Runtime instance of a workflow node." },
+        { column: "workflow_run_id", type: "uuid", purpose: "Parent workflow run." },
+        { column: "node_key", type: "text", purpose: "validate_po, erp_punch, sheet_sync, blinkit_po_ack." },
+        { column: "plugin_id", type: "text", purpose: "Action plugin executed by this node." },
+        { column: "status", type: "enum", purpose: "pending, ready, running, success, rejected, failed, skipped." },
+        { column: "input_snapshot_json", type: "jsonb", purpose: "Document/config input used by node." },
+        { column: "output_json", type: "jsonb", purpose: "Normalized node result for edge routing." }
+      ],
+      action_attempts: [
+        { column: "id", type: "uuid", purpose: "One plugin execution attempt." },
+        { column: "workflow_node_run_id", type: "uuid", purpose: "Node being attempted." },
+        { column: "plugin_id", type: "text", purpose: "validation.ruleset_engine, erp.punch_po, sheet.sync_po." },
+        { column: "status", type: "enum", purpose: "pending, running, success, retryable_failure, permanent_failure, dead_lettered." },
+        { column: "attempt", type: "int", purpose: "Retry count." },
+        { column: "idempotency_key", type: "text", purpose: "External safe retry key." },
+        { column: "request_ref/response_ref", type: "object ref", purpose: "Payload evidence for provider calls." }
+      ],
+      asn_tracking_jobs: [
+        { column: "id", type: "uuid", purpose: "Durable ASN tracking job." },
+        { column: "po_document_id", type: "uuid", purpose: "PO document that started ASN tracking." },
+        { column: "status", type: "enum", purpose: "waiting, polling, not_ready, data_incomplete, ready, created_asn, failed." },
+        { column: "source_plugin_id", type: "text", purpose: "erp.get_asn_details initially; future provider can replace it." },
+        { column: "next_poll_at", type: "timestamp", purpose: "When poller may check again." },
+        { column: "attempt_count", type: "int", purpose: "How many times ASN source has been checked." },
+        { column: "max_poll_until", type: "timestamp", purpose: "SLA/deadline before escalation." },
+        { column: "created_by_workflow_node_run_id", type: "uuid", purpose: "ASN schedule action that created this job." }
+      ]
+    };
+
+    const queueSchemas = {
+      "edi.ingestion": [
+        { field: "messageType", type: "literal", meaning: "ingestion" },
+        { field: "rawEventId", type: "uuid", meaning: "Raw event row to parse." },
+        { field: "aggregateKey", type: "text", meaning: "Readable same-PO correlation key." },
+        { field: "aggregateKeyHash", type: "text", meaning: "Compact same-PO lock/routing key." },
+        { field: "platformCode", type: "text", meaning: "blinkit." },
+        { field: "sellerId", type: "uuid/text", meaning: "Tenant scope." },
+        { field: "documentType", type: "enum", meaning: "purchase_order." },
+        { field: "traceId", type: "text", meaning: "Observability correlation." },
+        { field: "attempt", type: "int", meaning: "Delivery attempt count." }
+      ],
+      "edi.actions.*": [
+        { field: "messageType", type: "literal", meaning: "action." },
+        { field: "workflowRunId", type: "uuid", meaning: "Workflow run to lock." },
+        { field: "workflowNodeRunId", type: "uuid", meaning: "Specific node to execute." },
+        { field: "actionAttemptId", type: "uuid", meaning: "Attempt row to claim." },
+        { field: "pluginId", type: "text", meaning: "Plugin implementation to execute." },
+        { field: "aggregateKey", type: "text", meaning: "Readable business trace key." },
+        { field: "aggregateKeyHash", type: "text", meaning: "Compact ordering/routing key." },
+        { field: "traceId", type: "text", meaning: "Log/span correlation." },
+        { field: "attempt", type: "int", meaning: "Message delivery attempt, not business retry count." }
+      ],
+      "edi.asn.tracking.due": [
+        { field: "messageType", type: "literal", meaning: "asn_source_poll." },
+        { field: "asnTrackingJobId", type: "uuid", meaning: "Persisted tracking job row to lock." },
+        { field: "sourcePluginId", type: "text", meaning: "erp.get_asn_details or future ASN source provider." },
+        { field: "poNumber", type: "text", meaning: "PO number used by ERP lookup." },
+        { field: "aggregateKey", type: "text", meaning: "Readable PO aggregate key." },
+        { field: "aggregateKeyHash", type: "text", meaning: "Compact PO routing key." },
+        { field: "traceId", type: "text", meaning: "Poll trace correlation." },
+        { field: "attempt", type: "int", meaning: "Poll attempt count." }
+      ],
+      "edi.retry": [
+        { field: "sourceQueue", type: "text", meaning: "Queue where work should return." },
+        { field: "availableAt", type: "timestamp", meaning: "Retry delay target." },
+        { field: "actionAttemptId", type: "uuid", meaning: "Attempt being retried or replaced." },
+        { field: "retryReason", type: "text", meaning: "Normalized retryable error code." },
+        { field: "traceId", type: "text", meaning: "Correlation back to original flow." }
+      ],
+      "edi.dlq": [
+        { field: "sourceQueue", type: "text", meaning: "Failed queue." },
+        { field: "payload", type: "json", meaning: "Original message body." },
+        { field: "errorCode", type: "text", meaning: "Reason for dead letter." },
+        { field: "lastError", type: "text", meaning: "Last worker error summary." },
+        { field: "traceId", type: "text", meaning: "Correlation to logs and DB state." }
+      ]
+    };
+
+    const queueMessages = [
+      {
+        queue: "edi.ingestion",
+        routing: "ingestion.blinkit.purchase_order.created",
+        purpose: "Convert raw Blinkit webhook into canonical PO and start workflow.",
+        payload: { messageType: "ingestion", rawEventId: "raw_evt_001", aggregateKey, aggregateKeyHash, platformCode: "blinkit", sellerId: "seller_123", documentType: "purchase_order", traceId, attempt: 1 }
+      },
+      {
+        queue: "edi.actions.validation",
+        routing: "action.validation.ruleset_engine",
+        purpose: "Run effective inherited ruleset against canonical PO.",
+        payload: { messageType: "action", workflowRunId: "wf_run_po_001", workflowNodeRunId: "node_validate_po", actionAttemptId: "act_validate_po_1", pluginId: "validation.ruleset_engine", aggregateKey, aggregateKeyHash, traceId, attempt: 1 }
+      },
+      {
+        queue: "edi.actions.erp",
+        routing: "action.erp.punch_po",
+        purpose: "Punch PO into seller ERP. Retry is scoped only to ERP action attempt.",
+        payload: { messageType: "action", workflowRunId: "wf_run_po_001", workflowNodeRunId: "node_erp", actionAttemptId: "act_erp_1", pluginId: "erp.punch_po", aggregateKey, aggregateKeyHash, traceId, attempt: 1 }
+      },
+      {
+        queue: "edi.actions.sheet",
+        routing: "action.sheet.sync_po",
+        purpose: "Sync PO into seller sheet destination. Independent from ERP punch.",
+        payload: { messageType: "action", workflowRunId: "wf_run_po_001", workflowNodeRunId: "node_sheet", actionAttemptId: "act_sheet_1", pluginId: "sheet.sync_po", aggregateKey, aggregateKeyHash, traceId, attempt: 1 }
+      },
+      {
+        queue: "edi.actions.partner",
+        routing: "action.partner.blinkit.po_ack",
+        purpose: "Send PO acknowledgement to Blinkit after required actions complete.",
+        payload: { messageType: "action", workflowRunId: "wf_run_po_001", workflowNodeRunId: "node_ack", actionAttemptId: "act_ack_1", pluginId: "blinkit.po_ack", aggregateKey, aggregateKeyHash, traceId, attempt: 1 }
+      },
+      {
+        queue: "edi.asn.tracking.due",
+        routing: "asn_tracking.poll.erp",
+        purpose: "Call ERP get_asn_details when ASN tracking job is due.",
+        payload: { messageType: "asn_source_poll", asnTrackingJobId: "asn_tracking_job_001", sourcePluginId: "erp.get_asn_details", poNumber: "PO-1001", aggregateKey, aggregateKeyHash, traceId: "trc_asn_1001_poll_4", attempt: 4 }
+      },
+      {
+        queue: "edi.actions.partner",
+        routing: "action.partner.blinkit.asn_sync",
+        purpose: "Send validated ASN to Blinkit partnersbiz.",
+        payload: { messageType: "action", workflowRunId: "wf_run_asn_001", workflowNodeRunId: "node_asn_sync", actionAttemptId: "act_asn_sync_1", pluginId: "blinkit.asn_sync", aggregateKey: "blinkit:seller_123:asn:ASN-PO-1001-01", aggregateKeyHash: "sha256:31aa...", traceId: "trc_asn_1001", attempt: 1 }
+      }
+    ];
+
+    const userFlows = [
+      { title: "Seller operator PO view", body: "Sees PO-1001 as a single journey: received, validated, ERP punched, sheet synced, acknowledged, ASN tracking scheduled, ASN accepted. Drill-down reveals action attempts and payload refs." },
+      { title: "Approval user flow", body: "If ERP approval is enabled, UI inserts approval.manual_decision before erp.punch_po. Approver sees canonical PO summary, risk reasons, target action, and approve/reject controls." },
+      { title: "Ops retry flow", body: "If ERP, sheet, ack, or ASN sync fails, operator retries the failed action attempt. Successful prior actions are not repeated because each node has independent status and idempotency key." },
+      { title: "ASN operations flow", body: "Ops sees ASN tracking job status, next poll time, poll attempts, last ERP response, missing fields, and Poll now action. Long waits live in asn_tracking_jobs, not in a running worker." },
+      { title: "Audit flow", body: "Auditor can answer: what payload arrived, which rules ran, who approved, which ERP/sheet/Blinkit payloads were sent, what response came back, and what version of config was used." },
+      { title: "Config/debug flow", body: "Workflow admins can compare seller workflow version, ruleset version, approval policies, retry policies, and plugin provider configs frozen in resolved_config_snapshots." }
+    ];
+
+    const failurePaths = [
+      { title: "Duplicate PO webhook", status: "no side effect", body: "raw_events gets a new append-only row with duplicate_of_raw_event_id pointing to the original. documents/workflow/action rows are not recreated. UI shows duplicate event linked to original PO journey." },
+      { title: "Changed same PO before side effects", status: "new version allowed", body: "Same aggregate key with different payload hash creates document_version v2 if no irreversible external side effect has completed. Workflow can restart or continue from safe point." },
+      { title: "Changed same PO after ERP/ack", status: "manual review", body: "Original PO is not silently mutated. System creates changed_po_event and routes to manual review or amendment flow because external systems already saw old data." },
+      { title: "ERP timeout", status: "retry ERP only", body: "action_attempt erp.punch_po becomes retryable_failure, retry scheduled with same idempotency key. Sheet and validation are not rerun." },
+      { title: "Sheet sync fails", status: "workflow waiting", body: "sheet_sync node fails or retries. If PO ack depends on sheet success, ack waits. ERP punch success remains success." },
+      { title: "Approval rejected", status: "branch to terminal/review", body: "approval.manual_decision returns rejected. Workflow follows rejected edge. Target action is never called if approval was pre-action." },
+      { title: "ASN not ready for days", status: "reschedule", body: "asn_tracking_jobs attempt_count increments, next_poll_at moves forward. No worker remains active. SLA alert fires when max_poll_until approaches." },
+      { title: "ASN incomplete", status: "ops review", body: "ERP returns ASN but mandatory Blinkit fields are missing. ASN tracking job moves to data_incomplete and UI shows missing fields for correction or source-system fix." },
+      { title: "ASN partial accepted", status: "item-level handling", body: "Blinkit accepts part of ASN. partner_messages stores response; ASN workflow routes to partial review with failed line details and retry/amend options." }
+    ];
+
+    function escapeHtml(value) {
+      return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+    }
+
+    function renderList(target, items) {
+      target.innerHTML = items.map(item => `<li>${escapeHtml(item)}</li>`).join("");
+    }
+
+    function selectStep(id) {
+      const step = steps.find(item => item.id === id) || steps[0];
+      document.querySelectorAll(".step").forEach(el => el.classList.toggle("active", el.dataset.step === step.id));
+      document.getElementById("stepTitle").textContent = step.title;
+      document.getElementById("stepNarrative").textContent = step.narrative;
+      renderList(document.getElementById("stepDataFlow"), step.dataFlow);
+      renderList(document.getElementById("stepTables"), step.tables);
+      renderList(document.getElementById("stepQueues"), step.queues);
+      renderList(document.getElementById("stepUser"), step.user);
+      if (window.flowCy) {
+        flowCy.elements().removeClass("selected");
+        const node = flowCy.getElementById(step.id);
+        if (node.length) node.addClass("selected");
+      }
+    }
+
+    function renderTimeline() {
+      const timeline = document.getElementById("timeline");
+      timeline.innerHTML = steps.map((step, index) => `
+        <button class="step" data-step="${escapeHtml(step.id)}">
+          <span class="num">${index + 1}</span>
+          <span><strong>${escapeHtml(step.title)}</strong><span>${escapeHtml(step.subtitle)}</span></span>
+        </button>
+      `).join("");
+      timeline.querySelectorAll(".step").forEach(button => {
+        button.addEventListener("click", () => selectStep(button.dataset.step));
+      });
+    }
+
+    function renderDbTable(name) {
+      const rows = dbTables[name] || [];
+      document.querySelectorAll(".tab").forEach(el => el.classList.toggle("active", el.dataset.table === name));
+      document.getElementById("dbTitle").textContent = name;
+      if (!rows.length) {
+        document.getElementById("dbTable").innerHTML = "<p>No rows.</p>";
+        return;
+      }
+      const keys = Array.from(new Set(rows.flatMap(row => Object.keys(row))));
+      document.getElementById("dbTable").innerHTML = `
+        <table>
+          <thead><tr>${keys.map(key => `<th>${escapeHtml(key)}</th>`).join("")}</tr></thead>
+          <tbody>${rows.map(row => `<tr>${keys.map(key => `<td>${escapeHtml(row[key] ?? "")}</td>`).join("")}</tr>`).join("")}</tbody>
+        </table>
+      `;
+    }
+
+    function renderSchemaTable(name) {
+      const rows = dbSchemas[name] || [];
+      document.querySelectorAll("#schemaTabs .tab").forEach(el => el.classList.toggle("active", el.dataset.table === name));
+      document.getElementById("schemaTitle").textContent = name;
+      document.getElementById("schemaTable").innerHTML = `
+        <table>
+          <thead><tr><th>column</th><th>type</th><th>purpose</th></tr></thead>
+          <tbody>${rows.map(row => `<tr><td><code>${escapeHtml(row.column)}</code></td><td>${escapeHtml(row.type)}</td><td>${escapeHtml(row.purpose)}</td></tr>`).join("")}</tbody>
+        </table>
+      `;
+    }
+
+    function renderSchemaTabs() {
+      const tabs = document.getElementById("schemaTabs");
+      tabs.innerHTML = Object.keys(dbSchemas).map(name => `<button class="tab" data-table="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join("");
+      tabs.querySelectorAll(".tab").forEach(button => button.addEventListener("click", () => renderSchemaTable(button.dataset.table)));
+      renderSchemaTable("raw_events");
+    }
+
+    function renderDbTabs() {
+      const tabs = document.getElementById("dbTabs");
+      tabs.innerHTML = Object.keys(dbTables).map(name => `<button class="tab" data-table="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join("");
+      tabs.querySelectorAll(".tab").forEach(button => button.addEventListener("click", () => renderDbTable(button.dataset.table)));
+      renderDbTable("raw_events");
+    }
+
+    function renderQueueSchema(name) {
+      const rows = queueSchemas[name] || [];
+      document.querySelectorAll("#queueSchemaTabs .tab").forEach(el => el.classList.toggle("active", el.dataset.queue === name));
+      document.getElementById("queueSchemaTitle").textContent = name;
+      document.getElementById("queueSchemaTable").innerHTML = `
+        <table>
+          <thead><tr><th>field</th><th>type</th><th>meaning</th></tr></thead>
+          <tbody>${rows.map(row => `<tr><td><code>${escapeHtml(row.field)}</code></td><td>${escapeHtml(row.type)}</td><td>${escapeHtml(row.meaning)}</td></tr>`).join("")}</tbody>
+        </table>
+      `;
+    }
+
+    function renderQueueSchemaTabs() {
+      const tabs = document.getElementById("queueSchemaTabs");
+      tabs.innerHTML = Object.keys(queueSchemas).map(name => `<button class="tab" data-queue="${escapeHtml(name)}">${escapeHtml(name)}</button>`).join("");
+      tabs.querySelectorAll(".tab").forEach(button => button.addEventListener("click", () => renderQueueSchema(button.dataset.queue)));
+      renderQueueSchema("edi.ingestion");
+    }
+
+    function renderQueueCards() {
+      document.getElementById("queueCards").innerHTML = queueMessages.map(message => `
+        <article class="queue-card">
+          <h3>${escapeHtml(message.queue)}</h3>
+          <p class="muted"><code>${escapeHtml(message.routing)}</code></p>
+          <p>${escapeHtml(message.purpose)}</p>
+          <pre>${escapeHtml(JSON.stringify(message.payload, null, 2))}</pre>
+        </article>
+      `).join("");
+    }
+
+    function renderUserCards() {
+      document.getElementById("userCards").innerHTML = userFlows.map(flow => `
+        <article class="user-card">
+          <h3>${escapeHtml(flow.title)}</h3>
+          <p>${escapeHtml(flow.body)}</p>
+        </article>
+      `).join("");
+    }
+
+    function renderFailureCards() {
+      document.getElementById("failureCards").innerHTML = failurePaths.map(path => `
+        <article class="failure-card">
+          <h3>${escapeHtml(path.title)}</h3>
+          <p><code>${escapeHtml(path.status)}</code></p>
+          <p>${escapeHtml(path.body)}</p>
+        </article>
+      `).join("");
+    }
+
+    function initGraph() {
+      if (!window.cytoscape) {
+        document.getElementById("flowGraph").innerHTML = "<p style='padding:20px'>Graph library unavailable. The timeline below still contains the full flow.</p>";
+        return;
+      }
+      const colors = { core: "#6ab7ff", plugin: "#55d6c2", queue: "#f1ba63", store: "#b59cff", risk: "#ff6f7d" };
+      const n = (id, label, layer) => ({ data: { id, label, layer } });
+      const e = (source, target, label) => ({ data: { source, target, label: label || "" } });
+      const elements = [
+        n("webhook", "Blinkit PO webhook", "core"),
+        n("rawDb", "raw_events", "store"),
+        n("ingestion", "edi.ingestion", "queue"),
+        n("canonical", "Canonical PO", "core"),
+        n("workflow", "Workflow run", "core"),
+        n("validation", "Validation action", "plugin"),
+        n("erp", "ERP punch", "plugin"),
+        n("sheet", "Sheet sync", "plugin"),
+        n("ack", "Blinkit PO ack", "plugin"),
+        n("asnSchedule", "ASN tracking action", "plugin"),
+        n("asnJob", "asn_tracking_jobs", "store"),
+        n("asnPoll", "ERP ASN poll", "plugin"),
+        n("asnDoc", "Canonical ASN workflow", "core"),
+        n("asnSync", "Blinkit ASN sync", "plugin"),
+        n("done", "ASN accepted", "store"),
+        n("manual", "Manual review / retry", "risk"),
+        e("webhook", "rawDb", "persist"),
+        e("rawDb", "ingestion", "outbox"),
+        e("ingestion", "canonical", "parse/map"),
+        e("canonical", "workflow", "create run"),
+        e("workflow", "validation", "ready node"),
+        e("validation", "erp", "success"),
+        e("validation", "sheet", "success"),
+        e("validation", "manual", "rejected"),
+        e("erp", "ack", "success"),
+        e("sheet", "ack", "success"),
+        e("erp", "manual", "failed"),
+        e("sheet", "manual", "failed"),
+        e("ack", "asnSchedule", "success"),
+        e("asnSchedule", "asnJob", "create"),
+        e("asnJob", "asnPoll", "next_poll_at due"),
+        e("asnPoll", "asnJob", "not ready"),
+        e("asnPoll", "asnDoc", "ready"),
+        e("asnDoc", "asnSync", "validated"),
+        e("asnDoc", "manual", "invalid/incomplete"),
+        e("asnSync", "done", "accepted"),
+        e("asnSync", "manual", "partial/rejected")
+      ];
+
+      window.flowCy = cytoscape({
+        container: document.getElementById("flowGraph"),
+        elements,
+        style: [
+          { selector: "node", style: { label: "data(label)", "text-wrap": "wrap", "text-max-width": 130, "font-size": 11, "font-weight": 800, color: "#071019", "text-valign": "center", "text-halign": "center", shape: "round-rectangle", width: 142, height: 62, "background-color": ele => colors[ele.data("layer")], "border-color": "#e8f3ff", "border-width": 1 } },
+          { selector: "edge", style: { width: 1.7, "line-color": "#708196", "target-arrow-color": "#708196", "target-arrow-shape": "triangle", "curve-style": "bezier", label: "data(label)", "font-size": 9, color: "#c1ccda", "text-background-color": "#071018", "text-background-opacity": .82, "text-background-padding": 2 } },
+          { selector: ".selected", style: { "border-width": 4, "border-color": "#ffffff", "box-shadow": "0 0 18px #fff" } }
+        ],
+        layout: { name: "dagre", rankDir: "LR", nodeSep: 36, rankSep: 72 },
+        wheelSensitivity: .18,
+        minZoom: .18,
+        maxZoom: 2.5
+      });
+
+      flowCy.on("tap", "node", event => {
+        const id = event.target.id();
+        if (steps.some(step => step.id === id)) selectStep(id);
+      });
+      flowCy.ready(() => flowCy.fit(undefined, 26));
+    }
+
+    renderTimeline();
+    renderSchemaTabs();
+    renderDbTabs();
+    renderQueueSchemaTabs();
+    renderQueueCards();
+    renderUserCards();
+    renderFailureCards();
+    initGraph();
+    selectStep("webhook");
+  </script>
+</body>
+</html>

@@ -1,0 +1,2006 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>EDI Integration Platform, in Plain English</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --paper: #f7f5ef;
+      --paper-2: #ebe7dc;
+      --ink: #151719;
+      --muted: #65707a;
+      --line: #d5cec0;
+      --panel: #fffdf8;
+      --panel-strong: #f1eee6;
+      --charcoal: #20252a;
+      --teal: #157f7a;
+      --green: #2f8d63;
+      --amber: #b56d12;
+      --red: #b94a48;
+      --blue: #315f9f;
+      --violet: #70549b;
+      --shadow: 0 18px 48px rgba(31, 28, 22, .13);
+      --radius: 8px;
+      --max: 1240px;
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background:
+        linear-gradient(90deg, rgba(21, 127, 122, .08) 1px, transparent 1px),
+        linear-gradient(180deg, rgba(21, 127, 122, .06) 1px, transparent 1px),
+        var(--paper);
+      background-size: 44px 44px;
+      color: var(--ink);
+      font: 16px/1.55 Georgia, "Times New Roman", serif;
+    }
+
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      background:
+        linear-gradient(115deg, rgba(255, 253, 248, .82), rgba(255, 253, 248, .28) 44%, rgba(235, 231, 220, .8)),
+        repeating-linear-gradient(0deg, rgba(32, 37, 42, .018), rgba(32, 37, 42, .018) 1px, transparent 1px, transparent 5px);
+      z-index: -1;
+    }
+
+    a { color: inherit; }
+    button { font: inherit; }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 20;
+      background: rgba(247, 245, 239, .92);
+      backdrop-filter: blur(14px);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .topbar-inner {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 12px 22px;
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 18px;
+      align-items: center;
+    }
+
+    .brand {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      min-width: 0;
+    }
+
+    .brand-mark {
+      width: 34px;
+      height: 34px;
+      border: 2px solid var(--charcoal);
+      display: grid;
+      place-items: center;
+      background: var(--teal);
+      color: #fffdf8;
+      font: 800 12px/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .08em;
+      box-shadow: 4px 4px 0 var(--charcoal);
+    }
+
+    .brand-title {
+      font: 800 13px/1.1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .nav {
+      display: flex;
+      gap: 4px;
+      align-items: center;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+    }
+
+    .nav a,
+    .nav button {
+      border: 1px solid transparent;
+      background: transparent;
+      color: var(--muted);
+      text-decoration: none;
+      border-radius: 999px;
+      padding: 7px 10px;
+      font: 700 12px/1 ui-sans-serif, system-ui, sans-serif;
+      cursor: pointer;
+    }
+
+    .nav a:hover,
+    .nav button:hover {
+      color: var(--ink);
+      background: var(--panel);
+      border-color: var(--line);
+    }
+
+    .progress {
+      height: 3px;
+      width: 0;
+      background: linear-gradient(90deg, var(--teal), var(--amber), var(--blue));
+    }
+
+    .hero {
+      max-width: var(--max);
+      margin: 0 auto;
+      min-height: calc(100vh - 68px);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 420px;
+      gap: 34px;
+      align-items: center;
+      padding: 44px 22px 30px;
+    }
+
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      border: 1px solid var(--charcoal);
+      background: #f2c94c;
+      color: var(--charcoal);
+      box-shadow: 4px 4px 0 var(--charcoal);
+      padding: 8px 12px;
+      font: 900 12px/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    h1 {
+      margin: 24px 0 18px;
+      max-width: 820px;
+      font: 900 clamp(44px, 7vw, 92px)/.9 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .hero-copy {
+      max-width: 760px;
+      font-size: clamp(19px, 2vw, 24px);
+      line-height: 1.42;
+      color: #30363b;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      margin-top: 26px;
+    }
+
+    .btn {
+      border: 2px solid var(--charcoal);
+      background: var(--charcoal);
+      color: #fffdf8;
+      border-radius: 999px;
+      padding: 12px 16px;
+      text-decoration: none;
+      font: 800 13px/1 ui-sans-serif, system-ui, sans-serif;
+      box-shadow: 4px 4px 0 rgba(21, 127, 122, .38);
+      transition: transform .16s ease, box-shadow .16s ease;
+    }
+
+    .btn.secondary {
+      background: var(--panel);
+      color: var(--charcoal);
+      box-shadow: 4px 4px 0 rgba(181, 109, 18, .34);
+    }
+
+    .btn:hover {
+      transform: translate(-1px, -1px);
+      box-shadow: 6px 6px 0 rgba(21, 127, 122, .42);
+    }
+
+    .hero-board {
+      position: relative;
+      border: 2px solid var(--charcoal);
+      background: var(--panel);
+      box-shadow: 12px 12px 0 rgba(32, 37, 42, .12), var(--shadow);
+      padding: 18px;
+      border-radius: var(--radius);
+      min-height: 520px;
+    }
+
+    .board-title {
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+      align-items: center;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--charcoal);
+      font: 900 12px/1 ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .12em;
+    }
+
+    .board-subtitle {
+      color: var(--muted);
+      font-weight: 800;
+      letter-spacing: .04em;
+    }
+
+    .mini-map {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .map-row {
+      display: grid;
+      grid-template-columns: 92px minmax(0, 1fr);
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .lane-name {
+      display: grid;
+      place-items: center;
+      min-height: 58px;
+      background: var(--panel-strong);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      color: var(--muted);
+      font: 800 11px/1.2 ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      text-align: center;
+    }
+
+    .lane-items {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr) auto minmax(0, 1fr);
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+    }
+
+    .mini-node {
+      min-width: 0;
+      border: 1px solid var(--charcoal);
+      border-radius: var(--radius);
+      padding: 10px 6px;
+      background: #fff;
+      font: 800 11px/1.15 ui-sans-serif, system-ui, sans-serif;
+      text-align: center;
+      box-shadow: 3px 3px 0 rgba(32, 37, 42, .13);
+      overflow-wrap: anywhere;
+    }
+
+    .mini-node.teal { border-color: var(--teal); color: var(--teal); }
+    .mini-node.green { border-color: var(--green); color: var(--green); }
+    .mini-node.amber { border-color: var(--amber); color: var(--amber); }
+    .mini-node.blue { border-color: var(--blue); color: var(--blue); }
+    .mini-node.violet { border-color: var(--violet); color: var(--violet); }
+
+    .mini-arrow {
+      color: var(--muted);
+      font: 900 16px/1 ui-sans-serif, system-ui, sans-serif;
+      flex: 0 0 auto;
+    }
+
+    main {
+      max-width: var(--max);
+      margin: 0 auto;
+      padding: 0 22px 90px;
+    }
+
+    section {
+      scroll-margin-top: 80px;
+      margin: 34px 0;
+    }
+
+    .section-head {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 20px;
+      align-items: end;
+      margin-bottom: 16px;
+      border-top: 2px solid var(--charcoal);
+      padding-top: 24px;
+    }
+
+    h2 {
+      margin: 0;
+      font: 900 clamp(28px, 4vw, 52px)/.95 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .section-label {
+      color: var(--muted);
+      font: 900 12px/1 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .12em;
+      text-transform: uppercase;
+    }
+
+    .lead {
+      max-width: 860px;
+      color: #33393f;
+      font-size: 20px;
+      line-height: 1.45;
+      margin: 0 0 20px;
+    }
+
+    .grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .grid.cols-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid.cols-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: 0 10px 24px rgba(31, 28, 22, .06);
+    }
+
+    .card.strong {
+      border: 2px solid var(--charcoal);
+      box-shadow: 6px 6px 0 rgba(32, 37, 42, .09);
+    }
+
+    .card h3 {
+      margin: 0 0 8px;
+      font: 900 18px/1.15 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .card p,
+    .card li {
+      color: #3c444b;
+    }
+
+    .card p {
+      margin: 0;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1px solid currentColor;
+      padding: 5px 8px;
+      margin-bottom: 12px;
+      font: 900 11px/1 ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .tag.teal { color: var(--teal); }
+    .tag.green { color: var(--green); }
+    .tag.amber { color: var(--amber); }
+    .tag.blue { color: var(--blue); }
+    .tag.violet { color: var(--violet); }
+    .tag.red { color: var(--red); }
+
+    .flow-shell {
+      background: var(--charcoal);
+      color: #fffdf8;
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: var(--shadow);
+    }
+
+    .flow-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .flow-tab {
+      border: 1px solid rgba(255,255,255,.18);
+      background: rgba(255,255,255,.06);
+      color: #cfd7dc;
+      border-radius: 999px;
+      padding: 9px 12px;
+      cursor: pointer;
+      font: 900 12px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .flow-tab[aria-selected="true"] {
+      background: #fffdf8;
+      color: var(--charcoal);
+      border-color: #fffdf8;
+    }
+
+    .journey {
+      display: none;
+      background: #fffdf8;
+      color: var(--ink);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .journey.active { display: block; }
+
+    .journey-grid {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      min-height: 520px;
+    }
+
+    .journey-note {
+      background: var(--panel-strong);
+      border-right: 1px solid var(--line);
+      padding: 20px;
+    }
+
+    .journey-note h3 {
+      margin: 0 0 10px;
+      font: 900 24px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .journey-note p {
+      margin: 0;
+      color: #3d444a;
+    }
+
+    .steps {
+      display: grid;
+      gap: 12px;
+      padding: 18px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 38px minmax(0, 1fr) auto;
+      gap: 12px;
+      align-items: start;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      background: #fff;
+    }
+
+    .step-no {
+      width: 34px;
+      height: 34px;
+      display: grid;
+      place-items: center;
+      border-radius: 50%;
+      background: var(--charcoal);
+      color: #fffdf8;
+      font: 900 13px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .step h4 {
+      margin: 0 0 4px;
+      font: 900 16px/1.15 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .step p {
+      margin: 0;
+      color: #4b535a;
+      font-size: 15px;
+    }
+
+    .step-owner {
+      white-space: nowrap;
+      color: var(--muted);
+      font: 900 11px/1 ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      padding: 6px 8px;
+      background: var(--panel-strong);
+    }
+
+    .swimlane {
+      display: grid;
+      gap: 8px;
+      background: var(--panel);
+      border: 2px solid var(--charcoal);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: 7px 7px 0 rgba(49, 95, 159, .12);
+      overflow: auto;
+    }
+
+    .swim-row {
+      display: grid;
+      grid-template-columns: 150px repeat(6, minmax(140px, 1fr));
+      gap: 8px;
+      min-width: 1020px;
+      align-items: stretch;
+    }
+
+    .swim-label {
+      min-height: 74px;
+      display: grid;
+      place-items: center;
+      background: var(--charcoal);
+      color: #fffdf8;
+      border-radius: var(--radius);
+      text-align: center;
+      font: 900 12px/1.2 ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+    }
+
+    .swim-cell {
+      min-height: 74px;
+      border: 1px dashed #c5baa7;
+      border-radius: var(--radius);
+      padding: 10px;
+      background: #fff;
+      color: #3d444a;
+      font: 700 13px/1.3 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .swim-cell.active {
+      border-style: solid;
+      border-color: var(--charcoal);
+      box-shadow: inset 0 0 0 3px rgba(21, 127, 122, .08);
+    }
+
+    .pill-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .pill {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      border-radius: 999px;
+      padding: 8px 10px;
+      color: #3f474e;
+      font: 800 12px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .callout {
+      border-left: 6px solid var(--teal);
+      background: #e9f4f0;
+      padding: 18px;
+      border-radius: 0 var(--radius) var(--radius) 0;
+      font-size: 20px;
+      line-height: 1.42;
+      color: #263035;
+    }
+
+    .component-map {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .component {
+      position: relative;
+      min-height: 156px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      overflow: hidden;
+    }
+
+    .component::after {
+      content: attr(data-layer);
+      position: absolute;
+      right: 10px;
+      bottom: 10px;
+      color: rgba(32, 37, 42, .12);
+      font: 900 42px/.8 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: 0;
+    }
+
+    .component h3 {
+      margin: 0 0 8px;
+      font: 900 17px/1.1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .component p {
+      position: relative;
+      z-index: 1;
+      margin: 0;
+      color: #40484f;
+      font-size: 15px;
+    }
+
+    .do-dont {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .decision-banner {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 260px;
+      gap: 18px;
+      align-items: center;
+      background: var(--charcoal);
+      color: #fffdf8;
+      border-radius: var(--radius);
+      padding: 20px;
+      box-shadow: var(--shadow);
+    }
+
+    .decision-banner h3 {
+      margin: 0 0 8px;
+      font: 900 clamp(24px, 3vw, 40px)/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .decision-banner p {
+      margin: 0;
+      color: #dce4e8;
+      font-size: 18px;
+    }
+
+    .decision-badge {
+      justify-self: end;
+      display: grid;
+      place-items: center;
+      min-height: 132px;
+      width: 100%;
+      border: 2px solid #fffdf8;
+      background: #f2c94c;
+      color: var(--charcoal);
+      border-radius: var(--radius);
+      box-shadow: 6px 6px 0 rgba(255, 253, 248, .18);
+      text-align: center;
+      padding: 14px;
+      font: 900 18px/1.1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .runtime-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .runtime-card {
+      background: var(--panel);
+      border: 2px solid var(--charcoal);
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 6px 6px 0 rgba(32, 37, 42, .08);
+    }
+
+    .runtime-card h3 {
+      margin: 0;
+      padding: 14px 16px;
+      background: var(--panel-strong);
+      border-bottom: 1px solid var(--line);
+      font: 900 18px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .runtime-list {
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .runtime-list li {
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr);
+      gap: 12px;
+      padding: 12px 16px;
+      border-bottom: 1px solid var(--line);
+      color: #3f474e;
+    }
+
+    .runtime-list li:last-child { border-bottom: 0; }
+
+    .runtime-list b {
+      color: var(--ink);
+      font: 900 13px/1.2 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .code-strip {
+      background: #171c20;
+      color: #f5f1e8;
+      border-radius: var(--radius);
+      padding: 16px;
+      overflow: auto;
+      font: 800 13px/1.55 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,.08);
+    }
+
+    .hld-stack {
+      display: grid;
+      gap: 10px;
+      background: var(--panel);
+      border: 2px solid var(--charcoal);
+      border-radius: var(--radius);
+      padding: 12px;
+      box-shadow: 7px 7px 0 rgba(21, 127, 122, .12);
+    }
+
+    .hld-layer {
+      display: grid;
+      grid-template-columns: 180px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .hld-label {
+      display: grid;
+      place-items: center;
+      border-radius: var(--radius);
+      background: var(--charcoal);
+      color: #fffdf8;
+      min-height: 86px;
+      text-align: center;
+      font: 900 12px/1.2 ui-sans-serif, system-ui, sans-serif;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+    }
+
+    .hld-items {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .hld-item {
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 12px;
+      color: #3f474e;
+      font: 700 13px/1.3 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .hld-item b {
+      display: block;
+      margin-bottom: 5px;
+      color: var(--ink);
+      font: 900 14px/1.1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .split-note {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .principle-board {
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .principle-list {
+      display: grid;
+      gap: 10px;
+    }
+
+    .principle {
+      display: grid;
+      grid-template-columns: 54px minmax(0, 1fr);
+      gap: 12px;
+      align-items: start;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+
+    .principle-no {
+      width: 42px;
+      height: 42px;
+      display: grid;
+      place-items: center;
+      border: 2px solid var(--charcoal);
+      border-radius: 50%;
+      color: var(--charcoal);
+      background: #f2c94c;
+      font: 900 13px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .principle h3 {
+      margin: 0 0 5px;
+      font: 900 17px/1.15 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .principle p {
+      margin: 0;
+      color: #434b52;
+      font-size: 15px;
+    }
+
+    .decision-table {
+      display: grid;
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .decision-row {
+      display: grid;
+      grid-template-columns: 210px minmax(0, 1fr) minmax(0, 1fr);
+      background: var(--panel);
+    }
+
+    .decision-row > div {
+      padding: 14px;
+      border-right: 1px solid var(--line);
+      color: #424a51;
+    }
+
+    .decision-row > div:last-child { border-right: 0; }
+
+    .decision-row.head {
+      background: var(--charcoal);
+      color: #fffdf8;
+      font: 900 12px/1.2 ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .decision-row.head > div { color: #fffdf8; }
+
+    .decision-row b {
+      color: var(--ink);
+      font: 900 14px/1.2 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .feature-matrix {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .feature-card {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 16px;
+      min-height: 188px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: "";
+      position: absolute;
+      inset: 0 auto 0 0;
+      width: 7px;
+      background: var(--teal);
+    }
+
+    .feature-card.amber::before { background: var(--amber); }
+    .feature-card.blue::before { background: var(--blue); }
+    .feature-card.green::before { background: var(--green); }
+    .feature-card.violet::before { background: var(--violet); }
+    .feature-card.red::before { background: var(--red); }
+
+    .feature-card h3 {
+      margin: 0 0 8px;
+      padding-left: 6px;
+      font: 900 18px/1.1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .feature-card p {
+      margin: 0;
+      padding-left: 6px;
+      color: #434b52;
+    }
+
+    .growth-ladder {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .growth-step {
+      background: #fff;
+      border: 2px solid var(--charcoal);
+      border-radius: var(--radius);
+      padding: 16px;
+      box-shadow: 5px 5px 0 rgba(21, 127, 122, .11);
+    }
+
+    .growth-step b {
+      display: block;
+      margin-bottom: 8px;
+      font: 900 15px/1.1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .growth-step span {
+      color: #454d54;
+    }
+
+    .ruleset-intro {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 280px;
+      gap: 14px;
+      align-items: stretch;
+      margin-bottom: 14px;
+    }
+
+    .ruleset-summary {
+      background: var(--charcoal);
+      color: #fffdf8;
+      border-radius: var(--radius);
+      padding: 18px;
+      box-shadow: var(--shadow);
+    }
+
+    .ruleset-summary h3 {
+      margin: 0 0 10px;
+      font: 900 28px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .ruleset-summary p {
+      margin: 0;
+      color: #dce4e8;
+      font-size: 17px;
+    }
+
+    .ruleset-stamp {
+      display: grid;
+      place-items: center;
+      min-height: 170px;
+      background: #f2c94c;
+      border: 2px solid var(--charcoal);
+      border-radius: var(--radius);
+      box-shadow: 6px 6px 0 rgba(32, 37, 42, .1);
+      text-align: center;
+      padding: 18px;
+      font: 900 20px/1.1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .inheritance-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .inheritance-step {
+      display: grid;
+      gap: 8px;
+      align-content: start;
+      min-height: 150px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+    }
+
+    .inheritance-step b {
+      color: var(--teal);
+      font: 900 14px/1.1 ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .inheritance-step span {
+      color: #424a51;
+      font-size: 14px;
+    }
+
+    .ownership-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .mode-strip {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+      margin-top: 14px;
+    }
+
+    .mode-card {
+      border: 2px solid var(--charcoal);
+      border-radius: var(--radius);
+      padding: 16px;
+      background: #fff;
+      box-shadow: 5px 5px 0 rgba(32, 37, 42, .08);
+    }
+
+    .mode-card h3 {
+      margin: 0 0 8px;
+      font: 900 20px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .mode-card p {
+      margin: 0;
+      color: #414950;
+    }
+
+    .mode-card.block { border-color: var(--red); }
+    .mode-card.warn { border-color: var(--amber); }
+    .mode-card.observe { border-color: var(--blue); }
+
+    .custom-flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(0, 1fr));
+      gap: 8px;
+      margin-top: 14px;
+    }
+
+    .custom-step {
+      min-height: 130px;
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px;
+      position: relative;
+    }
+
+    .custom-step::after {
+      content: "->";
+      position: absolute;
+      right: -15px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--muted);
+      font: 900 18px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .custom-step:last-child::after { content: ""; }
+
+    .custom-step b {
+      display: block;
+      margin-bottom: 8px;
+      font: 900 14px/1.1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .custom-step span {
+      color: #454d54;
+      font-size: 14px;
+    }
+
+    .do-dont h3 {
+      margin: 0 0 12px;
+      font: 900 18px/1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    ul.clean {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    ul.clean li { margin: 8px 0; }
+
+    .glossary {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      background: var(--line);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+
+    .term {
+      background: var(--panel);
+      padding: 16px;
+    }
+
+    .term b {
+      display: block;
+      margin-bottom: 5px;
+      font: 900 15px/1.1 ui-sans-serif, system-ui, sans-serif;
+    }
+
+    .term span { color: #4a5258; }
+
+    .footer {
+      margin-top: 44px;
+      padding: 24px 0 0;
+      border-top: 2px solid var(--charcoal);
+      color: var(--muted);
+      font: 800 12px/1.4 ui-sans-serif, system-ui, sans-serif;
+      text-transform: uppercase;
+      letter-spacing: .08em;
+    }
+
+    .presenter .topbar { display: none; }
+    .presenter .hero { min-height: 100vh; padding-top: 34px; }
+    .presenter section { min-height: 92vh; display: flex; flex-direction: column; justify-content: center; }
+
+    @media (max-width: 1100px) {
+      .hero { grid-template-columns: 1fr; min-height: auto; }
+      .hero-board { min-height: auto; }
+      .grid.cols-4,
+      .component-map,
+      .hld-items,
+      .split-note,
+      .feature-matrix,
+      .mode-strip,
+      .growth-ladder { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .principle-board,
+      .ruleset-intro,
+      .inheritance-grid { grid-template-columns: 1fr; }
+      .custom-flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      .decision-banner { grid-template-columns: 1fr; }
+      .decision-badge { justify-self: stretch; }
+      .journey-grid { grid-template-columns: 1fr; }
+      .journey-note { border-right: 0; border-bottom: 1px solid var(--line); }
+    }
+
+    @media (max-width: 760px) {
+      .topbar-inner { grid-template-columns: 1fr; }
+      .nav { justify-content: flex-start; overflow-x: auto; flex-wrap: nowrap; padding-bottom: 4px; }
+      .brand-title { white-space: normal; }
+      h1 { font-size: 42px; }
+      .hero { padding-top: 30px; }
+      .grid.cols-2,
+      .grid.cols-3,
+      .grid.cols-4,
+      .component-map,
+      .do-dont,
+      .glossary,
+      .runtime-grid,
+      .hld-layer,
+      .hld-items,
+      .split-note,
+      .feature-matrix,
+      .mode-strip,
+      .growth-ladder { grid-template-columns: 1fr; }
+      .ruleset-intro,
+      .inheritance-grid,
+      .ownership-grid,
+      .custom-flow { grid-template-columns: 1fr; }
+      .map-row { grid-template-columns: 1fr; }
+      .step { grid-template-columns: 38px minmax(0, 1fr); }
+      .step-owner { grid-column: 2; width: fit-content; white-space: normal; }
+      .section-head { grid-template-columns: 1fr; }
+      .runtime-list li { grid-template-columns: 1fr; }
+      .decision-row { grid-template-columns: 1fr; }
+      .decision-row > div { border-right: 0; border-bottom: 1px solid var(--line); }
+      .decision-row > div:last-child { border-bottom: 0; }
+      .custom-step::after { content: ""; }
+    }
+
+    @media print {
+      body { background: #fff; }
+      body::before,
+      .topbar,
+      .hero-actions,
+      .flow-tabs { display: none; }
+      .hero,
+      main { max-width: none; padding: 20px; }
+      .hero { display: block; min-height: auto; }
+      .hero-board,
+      .card,
+      .flow-shell,
+      .swimlane { box-shadow: none; break-inside: avoid; }
+      .journey { display: block; margin-bottom: 12px; }
+      section { break-inside: avoid; }
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <div class="brand">
+        <div class="brand-mark">EDI</div>
+        <div class="brand-title">Plain-English System Design</div>
+      </div>
+      <nav class="nav" aria-label="Page navigation">
+        <a href="#story">Story</a>
+        <a href="#journey">Journey</a>
+        <a href="#build-shape">Build</a>
+        <a href="#complete-hld">HLD</a>
+        <a href="#architecture">System</a>
+        <a href="#non-negotiables">Rules</a>
+        <a href="#validation-rulesets">Validation</a>
+        <a href="#features">Features</a>
+        <a href="#trust">Trust</a>
+        <a href="edi-production-database-and-queue-schema-site.html">DB Schema</a>
+        <a href="edi-technical-design-site.html">Tech Docs</a>
+        <a href="#glossary">Glossary</a>
+        <button type="button" id="presenterToggle">Presenter mode</button>
+      </nav>
+    </div>
+    <div class="progress" id="progress"></div>
+  </header>
+
+  <div class="hero">
+    <div>
+      <div class="kicker">For business, product, and engineering</div>
+      <h1>EDI Integration Platform, in Plain English</h1>
+      <p class="hero-copy">
+        We are building reliable middleware between marketplaces like Blinkit and seller systems like ERP, sheets, and warehouse tools. It receives purchase orders, runs the right business steps, sends confirmations and shipment notices, and keeps proof for every action.
+      </p>
+      <div class="hero-actions">
+        <a class="btn" href="#journey">Walk through the PO to ASN flow</a>
+        <a class="btn secondary" href="#architecture">See the system parts</a>
+      </div>
+    </div>
+
+    <aside class="hero-board" aria-label="Overview flow">
+      <div class="board-title">
+        <span>One Business Journey</span>
+        <span class="board-subtitle">PO to ASN</span>
+      </div>
+      <div class="mini-map">
+        <div class="map-row">
+          <div class="lane-name">Blinkit</div>
+          <div class="lane-items">
+            <div class="mini-node amber">PO sent</div>
+            <div class="mini-arrow">-></div>
+            <div class="mini-node green">Ack received</div>
+            <div class="mini-arrow">-></div>
+            <div class="mini-node blue">ASN accepted</div>
+          </div>
+        </div>
+        <div class="map-row">
+          <div class="lane-name">Our Platform</div>
+          <div class="lane-items">
+            <div class="mini-node teal">Store raw</div>
+            <div class="mini-arrow">-></div>
+            <div class="mini-node teal">Validate</div>
+            <div class="mini-arrow">-></div>
+            <div class="mini-node violet">Track ASN</div>
+          </div>
+        </div>
+        <div class="map-row">
+          <div class="lane-name">Seller ERP</div>
+          <div class="lane-items">
+            <div class="mini-node green">PO punched</div>
+            <div class="mini-arrow">-></div>
+            <div class="mini-node amber">Shipment ready</div>
+            <div class="mini-arrow">-></div>
+            <div class="mini-node blue">Invoice data</div>
+          </div>
+        </div>
+      </div>
+      <div class="callout" style="margin-top:18px">
+        Simple idea: every PO gets a tracked lane. Same PO stays ordered, duplicates are ignored, long waits become durable jobs, and every external call leaves evidence.
+      </div>
+    </aside>
+  </div>
+
+  <main>
+    <section id="story">
+      <div class="section-head">
+        <h2>What Are We Building?</h2>
+        <div class="section-label">Core Story</div>
+      </div>
+      <p class="lead">
+        Imagine Blinkit sends a seller a purchase order. The seller may use ERP, a sheet, or another operations tool. Our system sits in the middle and makes sure the order is received, checked, routed, acknowledged, shipped, and audited.
+      </p>
+      <div class="grid cols-3">
+        <article class="card strong">
+          <span class="tag amber">Receive</span>
+          <h3>Bring every platform message inside safely</h3>
+          <p>Webhook arrives. We authenticate it, store the original payload, assign a trace id, and create a durable record before any business logic runs.</p>
+        </article>
+        <article class="card strong">
+          <span class="tag teal">Orchestrate</span>
+          <h3>Run the seller's configured workflow</h3>
+          <p>Validation, ERP punch, sheet sync, approval, PO acknowledgement, ASN tracking, and notifications are workflow nodes, not hidden code paths.</p>
+        </article>
+        <article class="card strong">
+          <span class="tag blue">Prove</span>
+          <h3>Show exactly what happened later</h3>
+          <p>Operators can see raw payloads, document versions, action attempts, retries, external requests, responses, and state changes in one journey view.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="actors">
+      <div class="section-head">
+        <h2>Who Is Involved?</h2>
+        <div class="section-label">Actors</div>
+      </div>
+      <div class="grid cols-4">
+        <article class="card">
+          <span class="tag amber">Platform</span>
+          <h3>Blinkit</h3>
+          <p>External marketplace. Sends PO. Receives acknowledgement, ASN, and amendments.</p>
+        </article>
+        <article class="card">
+          <span class="tag green">Customer</span>
+          <h3>Vendor</h3>
+          <p>Organization using our product. Owns sellers, credentials, workflows, and audit records.</p>
+        </article>
+        <article class="card">
+          <span class="tag teal">Fulfillment</span>
+          <h3>Seller</h3>
+          <p>Legal or warehouse entity under vendor. Each seller can have different workflow and config.</p>
+        </article>
+        <article class="card">
+          <span class="tag blue">Internal Tool</span>
+          <h3>ERP / Sheet</h3>
+          <p>Seller system where PO is punched and where ASN or shipment data may become available later.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="journey">
+      <div class="section-head">
+        <h2>PO to ASN Journey</h2>
+        <div class="section-label">Interactive Walkthrough</div>
+      </div>
+      <p class="lead">
+        The user sees one business journey, but the system runs two executable workflows. PO workflow happens immediately. ASN workflow starts only when shipment data is ready.
+      </p>
+
+      <div class="flow-shell">
+        <div class="flow-tabs" role="tablist" aria-label="Journey views">
+          <button class="flow-tab" role="tab" aria-selected="true" aria-controls="poPanel" id="poTab">PO Workflow</button>
+          <button class="flow-tab" role="tab" aria-selected="false" aria-controls="asnPanel" id="asnTab">ASN Workflow</button>
+          <button class="flow-tab" role="tab" aria-selected="false" aria-controls="opsPanel" id="opsTab">Ops View</button>
+        </div>
+
+        <div class="journey active" id="poPanel" role="tabpanel" aria-labelledby="poTab">
+          <div class="journey-grid">
+            <div class="journey-note">
+              <h3>PO Workflow</h3>
+              <p>Blinkit says: please supply these items. We receive, validate, sync, acknowledge, and create future ASN tracking.</p>
+            </div>
+            <div class="steps">
+              <div class="step"><div class="step-no">1</div><div><h4>PO webhook arrives</h4><p>Blinkit calls our ingress API with purchase order payload.</p></div><div class="step-owner">Blinkit</div></div>
+              <div class="step"><div class="step-no">2</div><div><h4>Store raw payload</h4><p>Original message is saved first so replay and audit are always possible.</p></div><div class="step-owner">Ingress</div></div>
+              <div class="step"><div class="step-no">3</div><div><h4>Map to canonical PO</h4><p>Blinkit-specific fields are converted into our internal PO shape.</p></div><div class="step-owner">Plugin</div></div>
+              <div class="step"><div class="step-no">4</div><div><h4>Run configured actions</h4><p>Validation, ERP punch, sheet sync, approval, and notification run as workflow nodes.</p></div><div class="step-owner">Workflow</div></div>
+              <div class="step"><div class="step-no">5</div><div><h4>Send PO acknowledgement</h4><p>We call Blinkit when workflow reaches the acknowledgement node.</p></div><div class="step-owner">Partner Action</div></div>
+              <div class="step"><div class="step-no">6</div><div><h4>Schedule ASN tracking</h4><p>PO workflow creates a durable job and completes. It does not wait for days.</p></div><div class="step-owner">ASN Job</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="journey" id="asnPanel" role="tabpanel" aria-labelledby="asnTab">
+          <div class="journey-grid">
+            <div class="journey-note">
+              <h3>ASN Workflow</h3>
+              <p>Later, ERP has shipment and invoice details. We create a new ASN document and send it to Blinkit.</p>
+            </div>
+            <div class="steps">
+              <div class="step"><div class="step-no">1</div><div><h4>Poll ASN source</h4><p>Tracking worker checks ERP or another configured source on schedule.</p></div><div class="step-owner">Poller</div></div>
+              <div class="step"><div class="step-no">2</div><div><h4>Wait if not ready</h4><p>If ERP lacks invoice, batch, expiry, or quantity data, job reschedules itself.</p></div><div class="step-owner">Durable Job</div></div>
+              <div class="step"><div class="step-no">3</div><div><h4>Create ASN document</h4><p>When data is ready, we build canonical ASN and link it back to original PO.</p></div><div class="step-owner">Document Service</div></div>
+              <div class="step"><div class="step-no">4</div><div><h4>Validate ASN</h4><p>Rules check required fields and line details before any outbound call.</p></div><div class="step-owner">Validation</div></div>
+              <div class="step"><div class="step-no">5</div><div><h4>Send ASN to Blinkit</h4><p>Partner action builds Blinkit payload, sends it, and stores request/response evidence.</p></div><div class="step-owner">Partner Action</div></div>
+              <div class="step"><div class="step-no">6</div><div><h4>Close journey or route review</h4><p>Accepted ASN completes the journey. Partial/rejected ASN goes to ops review.</p></div><div class="step-owner">Ops</div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="journey" id="opsPanel" role="tabpanel" aria-labelledby="opsTab">
+          <div class="journey-grid">
+            <div class="journey-note">
+              <h3>Ops View</h3>
+              <p>Humans need one answer: what happened to this PO? Journey view stitches all documents, jobs, workflows, attempts, and messages.</p>
+            </div>
+            <div class="steps">
+              <div class="step"><div class="step-no">1</div><div><h4>Search by PO number</h4><p>Readable aggregate key lets support find the exact PO lane quickly.</p></div><div class="step-owner">UI</div></div>
+              <div class="step"><div class="step-no">2</div><div><h4>Inspect timeline</h4><p>Raw event, document version, workflow run, node runs, and retries appear in order.</p></div><div class="step-owner">Read Model</div></div>
+              <div class="step"><div class="step-no">3</div><div><h4>Open evidence</h4><p>Audited links reveal request and response payloads without exposing secrets casually.</p></div><div class="step-owner">Audit</div></div>
+              <div class="step"><div class="step-no">4</div><div><h4>Act safely</h4><p>Replay, retry, manual approval, correction, or amendment cannot bypass idempotency guards.</p></div><div class="step-owner">Operator</div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="swimlane-section">
+      <div class="section-head">
+        <h2>End-to-End View</h2>
+        <div class="section-label">Swimlane</div>
+      </div>
+      <div class="swimlane" aria-label="PO to ASN swimlane">
+        <div class="swim-row">
+          <div class="swim-label">Actor</div>
+          <div class="swim-label">1. Receive</div>
+          <div class="swim-label">2. Normalize</div>
+          <div class="swim-label">3. Execute</div>
+          <div class="swim-label">4. Wait</div>
+          <div class="swim-label">5. Ship Notice</div>
+          <div class="swim-label">6. Operate</div>
+        </div>
+        <div class="swim-row">
+          <div class="swim-label">Blinkit</div>
+          <div class="swim-cell active">Sends PO webhook</div>
+          <div class="swim-cell"></div>
+          <div class="swim-cell active">Receives PO acknowledgement</div>
+          <div class="swim-cell"></div>
+          <div class="swim-cell active">Receives ASN</div>
+          <div class="swim-cell active">Receives amendment if needed</div>
+        </div>
+        <div class="swim-row">
+          <div class="swim-label">Our Platform</div>
+          <div class="swim-cell active">Authenticate, store raw payload, dedupe</div>
+          <div class="swim-cell active">Map Blinkit payload to canonical PO</div>
+          <div class="swim-cell active">Run workflow actions and retries</div>
+          <div class="swim-cell active">Persist ASN tracking job</div>
+          <div class="swim-cell active">Create ASN document and run ASN workflow</div>
+          <div class="swim-cell active">Show journey, evidence, replay controls</div>
+        </div>
+        <div class="swim-row">
+          <div class="swim-label">Seller ERP</div>
+          <div class="swim-cell"></div>
+          <div class="swim-cell"></div>
+          <div class="swim-cell active">Receives punched PO</div>
+          <div class="swim-cell active">Prepares invoice and shipment data</div>
+          <div class="swim-cell active">Provides ASN details</div>
+          <div class="swim-cell"></div>
+        </div>
+      </div>
+    </section>
+
+    <section id="build-shape">
+      <div class="section-head">
+        <h2>How We Should Build It</h2>
+        <div class="section-label">Monolith vs Microservices</div>
+      </div>
+      <div class="decision-banner">
+        <div>
+          <h3>Use Modular Monolith + Event-Driven Workers</h3>
+          <p>
+            Start with one backend codebase and one source-of-truth database, but run separate process modes for API, workflow, outbox, ingestion, actions, and ASN polling. This gives clean boundaries without early microservice complexity.
+          </p>
+        </div>
+        <div class="decision-badge">Do this first<br>Split later only when pain is real</div>
+      </div>
+
+      <div class="runtime-grid">
+        <article class="runtime-card">
+          <h3>Always Running</h3>
+          <ul class="runtime-list">
+            <li><b>API Server</b><span>Receives Blinkit webhooks and serves ops/config APIs.</span></li>
+            <li><b>Outbox Dispatcher</b><span>Publishes queued work after database commits.</span></li>
+            <li><b>Ingestion Worker</b><span>Turns raw platform payloads into canonical documents.</span></li>
+            <li><b>Workflow Worker</b><span>Advances workflow state and decides next actions.</span></li>
+            <li><b>ASN Scheduler</b><span>Finds due ASN tracking jobs and queues poll work.</span></li>
+          </ul>
+        </article>
+        <article class="runtime-card">
+          <h3>Event Driven</h3>
+          <ul class="runtime-list">
+            <li><b>Validation</b><span>Runs rules only when workflow reaches validation node.</span></li>
+            <li><b>ERP Punch</b><span>Calls seller ERP when queue has ERP action work.</span></li>
+            <li><b>Sheet Sync</b><span>Writes rows only for sellers configured for sheets.</span></li>
+            <li><b>Partner Calls</b><span>Sends Blinkit ack, ASN, and amendment from action jobs.</span></li>
+            <li><b>Retry/DLQ</b><span>Retries failed jobs and parks exhausted failures for review.</span></li>
+          </ul>
+        </article>
+      </div>
+
+      <div class="grid cols-3" style="margin-top:14px">
+        <article class="card">
+          <span class="tag teal">Why this wins</span>
+          <h3>Fast to build, easy to debug</h3>
+          <p>One repo and one database keep local development and debugging simple while domain rules are still evolving.</p>
+        </article>
+        <article class="card">
+          <span class="tag amber">What stays central</span>
+          <h3>Truth stays in Postgres</h3>
+          <p>Events trigger work, but document state, workflow state, locks, idempotency, and config snapshots stay DB-owned.</p>
+        </article>
+        <article class="card">
+          <span class="tag blue">When to split</span>
+          <h3>Split by proven pressure</h3>
+          <p>Move to microservices only when scaling, ownership, isolation, or deployment pain proves a boundary.</p>
+        </article>
+      </div>
+
+      <div class="code-strip" style="margin-top:14px">
+same repo / same deployable
+  app api
+  app worker:ingestion
+  app worker:workflow
+  app worker:outbox
+  app worker:action-validation
+  app worker:action-erp
+  app worker:action-partner
+  app worker:asn-poller
+      </div>
+    </section>
+
+    <section id="complete-hld">
+      <div class="section-head">
+        <h2>Complete HLD</h2>
+        <div class="section-label">Layperson System Design</div>
+      </div>
+      <p class="lead">
+        High-level design means: what boxes exist, what each box owns, how data moves, and where reliability controls sit. Below is the complete system in plain language.
+      </p>
+
+      <div class="hld-stack" aria-label="Complete high-level design layers">
+        <div class="hld-layer">
+          <div class="hld-label">Entry Layer</div>
+          <div class="hld-items">
+            <div class="hld-item"><b>Webhook API</b>Blinkit sends PO events here.</div>
+            <div class="hld-item"><b>Auth Guard</b>Checks API key and IP allowlist.</div>
+            <div class="hld-item"><b>Trace ID</b>Labels every request for later debugging.</div>
+            <div class="hld-item"><b>Raw Store</b>Saves original payload before parsing.</div>
+          </div>
+        </div>
+        <div class="hld-layer">
+          <div class="hld-label">Core Layer</div>
+          <div class="hld-items">
+            <div class="hld-item"><b>Identity Resolver</b>Maps Blinkit supplier/outlet/item ids to our vendor, seller, and SKU records.</div>
+            <div class="hld-item"><b>Canonical Service</b>Converts Blinkit payloads into our common PO or ASN document.</div>
+            <div class="hld-item"><b>Config Resolver</b>Selects seller/vendor/platform/global workflow and freezes it for this run.</div>
+            <div class="hld-item"><b>Workflow Engine</b>Owns state and decides next step.</div>
+          </div>
+        </div>
+        <div class="hld-layer">
+          <div class="hld-label">Work Layer</div>
+          <div class="hld-items">
+            <div class="hld-item"><b>Outbox</b>Safely creates messages after DB commit.</div>
+            <div class="hld-item"><b>RabbitMQ</b>Queues background work by type.</div>
+            <div class="hld-item"><b>Action Workers</b>Run validation, ERP, sheets, Blinkit calls, notifications, and approvals.</div>
+            <div class="hld-item"><b>Retry Engine</b>Retries safe failures and sends exhausted work to dead letter review.</div>
+          </div>
+        </div>
+        <div class="hld-layer">
+          <div class="hld-label">Long Wait Layer</div>
+          <div class="hld-items">
+            <div class="hld-item"><b>ASN Tracking Job</b>Stores that shipment data is expected later.</div>
+            <div class="hld-item"><b>ASN Poller</b>Checks ERP on schedule without keeping workflow open.</div>
+            <div class="hld-item"><b>ASN Builder</b>Combines PO, ERP shipment data, seller tax/location, and item mapping.</div>
+            <div class="hld-item"><b>ASN Workflow</b>Validates and sends ASN as its own document lifecycle.</div>
+          </div>
+        </div>
+        <div class="hld-layer">
+          <div class="hld-label">Storage Layer</div>
+          <div class="hld-items">
+            <div class="hld-item"><b>Postgres</b>Source of truth for documents, workflow, idempotency, state, config, and audit.</div>
+            <div class="hld-item"><b>Object Store</b>Large raw/request/response payloads.</div>
+            <div class="hld-item"><b>Secrets Manager</b>API keys and ERP credentials.</div>
+            <div class="hld-item"><b>Telemetry</b>Logs, metrics, traces, alerts, and dashboards.</div>
+          </div>
+        </div>
+        <div class="hld-layer">
+          <div class="hld-label">Human Layer</div>
+          <div class="hld-items">
+            <div class="hld-item"><b>Ops Journey</b>One timeline from PO received to ASN accepted.</div>
+            <div class="hld-item"><b>Manual Review</b>Human approval or correction when automation is unsafe.</div>
+            <div class="hld-item"><b>Replay Controls</b>Audited replay that cannot bypass idempotency.</div>
+            <div class="hld-item"><b>Config UI</b>Draft, validate, publish, and assign workflows.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="split-note">
+        <article class="card">
+          <span class="tag green">Service boundary now</span>
+          <h3>Separate by process mode</h3>
+          <p>API and workers run separately, but share code and database transactions where needed.</p>
+        </article>
+        <article class="card">
+          <span class="tag amber">Service boundary later</span>
+          <h3>Split after learning</h3>
+          <p>Partner gateway, workflow runtime, plugin execution, ASN runtime, and read-model service can split later.</p>
+        </article>
+        <article class="card">
+          <span class="tag red">Do not split now</span>
+          <h3>Avoid premature microservices</h3>
+          <p>PO service, ASN service, audit service, config service, and Blinkit service day one would slow us down.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="architecture">
+      <div class="section-head">
+        <h2>System Parts</h2>
+        <div class="section-label">Architecture</div>
+      </div>
+      <p class="lead">
+        The design keeps partner-specific code, workflow state, side effects, and audit records separate. That gives us flexibility without losing control.
+      </p>
+      <div class="component-map">
+        <article class="component" data-layer="API">
+          <h3>Ingress API</h3>
+          <p>Receives webhooks, checks API key/IP allowlist, detects payload type, stores raw event, and queues ingestion.</p>
+        </article>
+        <article class="component" data-layer="RAW">
+          <h3>Raw Event Writer</h3>
+          <p>Saves original inbound or outbound payload reference before parsing, replay, or business processing.</p>
+        </article>
+        <article class="component" data-layer="IDEM">
+          <h3>Idempotency Service</h3>
+          <p>Prevents duplicate processing and duplicate external calls during retries, crashes, and replays.</p>
+        </article>
+        <article class="component" data-layer="PLUGIN">
+          <h3>Partner Plugins</h3>
+          <p>Blinkit-specific parsing and outbound payload building stay outside the workflow core.</p>
+        </article>
+        <article class="component" data-layer="DOC">
+          <h3>Canonical Documents</h3>
+          <p>Common internal PO, ASN, acknowledgement, and amendment shape independent of platform field names.</p>
+        </article>
+        <article class="component" data-layer="FLOW">
+          <h3>Workflow Engine</h3>
+          <p>Owns document state and runs published workflow versions with frozen config snapshots.</p>
+        </article>
+        <article class="component" data-layer="QUEUE">
+          <h3>RabbitMQ + Outbox</h3>
+          <p>Moves work to action workers reliably after database commits, with retries and dead letters.</p>
+        </article>
+        <article class="component" data-layer="JOB">
+          <h3>ASN Poller</h3>
+          <p>Checks ERP or other ASN sources later. Waiting is persisted as job state, not sleeping code.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="data">
+      <div class="section-head">
+        <h2>What We Store</h2>
+        <div class="section-label">Data Model</div>
+      </div>
+      <div class="grid cols-3">
+        <article class="card">
+          <span class="tag teal">Identity</span>
+          <h3>Vendor, seller, platform account</h3>
+          <p>Maps Blinkit tenant, supplier id, GSTIN, outlet, and item identifiers to our internal vendor and seller records.</p>
+        </article>
+        <article class="card">
+          <span class="tag amber">Documents</span>
+          <h3>Raw events and versions</h3>
+          <p>Stores immutable PO and ASN versions. New changes create new versions instead of rewriting history.</p>
+        </article>
+        <article class="card">
+          <span class="tag blue">Execution</span>
+          <h3>Workflow and action rows</h3>
+          <p>Each workflow run, node run, action attempt, approval, validation result, and partner message is recorded.</p>
+        </article>
+      </div>
+      <div class="pill-list">
+        <span class="pill">raw_events</span>
+        <span class="pill">documents</span>
+        <span class="pill">document_versions</span>
+        <span class="pill">workflow_runs</span>
+        <span class="pill">workflow_node_runs</span>
+        <span class="pill">action_attempts</span>
+        <span class="pill">partner_messages</span>
+        <span class="pill">asn_tracking_jobs</span>
+        <span class="pill">state_transitions</span>
+        <span class="pill">audit_log</span>
+      </div>
+    </section>
+
+    <section id="trust">
+      <div class="section-head">
+        <h2>Why This Design Is Reliable</h2>
+        <div class="section-label">Guardrails</div>
+      </div>
+      <div class="do-dont">
+        <article class="card strong">
+          <h3>Guarantees we want</h3>
+          <ul class="clean">
+            <li>Every raw payload is preserved before parsing.</li>
+            <li>Same PO is processed in order.</li>
+            <li>Exact duplicate webhook does not create duplicate side effects.</li>
+            <li>Retries reuse same idempotency key.</li>
+            <li>Running workflows use frozen published config.</li>
+            <li>ASN waiting survives worker restarts and can span days.</li>
+          </ul>
+        </article>
+        <article class="card strong">
+          <h3>Failure paths we handle</h3>
+          <ul class="clean">
+            <li>Blinkit sends duplicate PO.</li>
+            <li>PO changes after side effects already happened.</li>
+            <li>ERP timeout or partial failure.</li>
+            <li>ASN source data not ready yet.</li>
+            <li>Missing item mapping or required ASN fields.</li>
+            <li>Blinkit rejects or partially accepts ASN.</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section id="non-negotiables">
+      <div class="section-head">
+        <h2>Core Non-Negotiables</h2>
+        <div class="section-label">What Must Always Be True</div>
+      </div>
+      <p class="lead">
+        These are the rules that make the middleware safe. If any one of these is broken, the system may duplicate orders, lose audit evidence, or become impossible to operate as more brands, ERPs, and platforms are added.
+      </p>
+
+      <div class="principle-board">
+        <div class="principle-list">
+          <article class="principle">
+            <div class="principle-no">01</div>
+            <div><h3>DAG workflow, not hardcoded steps</h3><p>Workflows are graphs. A seller can go PO -> validate -> ERP -> ack, while another seller can go PO -> validate -> sheet -> approval -> ack.</p></div>
+          </article>
+          <article class="principle">
+            <div class="principle-no">02</div>
+            <div><h3>Idempotent system end to end</h3><p>Duplicate webhooks, retries, worker crashes, and replay must not create duplicate ERP orders, duplicate Blinkit acks, or duplicate ASNs.</p></div>
+          </article>
+          <article class="principle">
+            <div class="principle-no">03</div>
+            <div><h3>Raw payload stored before parsing</h3><p>We must always preserve what Blinkit sent and what we sent back, even if parsing or validation fails later.</p></div>
+          </article>
+          <article class="principle">
+            <div class="principle-no">04</div>
+            <div><h3>Workflow engine owns state</h3><p>Action plugins do work and return results. They do not secretly mutate document state. This keeps the system understandable.</p></div>
+          </article>
+        </div>
+        <div class="principle-list">
+          <article class="principle">
+            <div class="principle-no">05</div>
+            <div><h3>Plugin-first integrations</h3><p>Blinkit, future platforms, ERPs, sheets, and notification tools plug in around the core instead of changing the core every time.</p></div>
+          </article>
+          <article class="principle">
+            <div class="principle-no">06</div>
+            <div><h3>Long waits are durable jobs</h3><p>ASN can happen days later. We store waiting state in ASN tracking jobs, not sleeping workers or open workflow actions.</p></div>
+          </article>
+          <article class="principle">
+            <div class="principle-no">07</div>
+            <div><h3>Config is versioned and frozen</h3><p>A workflow run uses the workflow/rules/config version selected at start. New config changes do not rewrite old history.</p></div>
+          </article>
+          <article class="principle">
+            <div class="principle-no">08</div>
+            <div><h3>Every action is traceable</h3><p>Ops must answer: what arrived, what we created, which rule ran, what external call happened, what response came back.</p></div>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section id="design-decisions">
+      <div class="section-head">
+        <h2>Design Decisions</h2>
+        <div class="section-label">Conclusive Choices</div>
+      </div>
+      <div class="decision-table" aria-label="Design decisions">
+        <div class="decision-row head">
+          <div>Area</div>
+          <div>Decision</div>
+          <div>Layperson Reason</div>
+        </div>
+        <div class="decision-row">
+          <div><b>Application shape</b></div>
+          <div>Modular monolith with event-driven workers.</div>
+          <div>One system to build quickly, many worker modes to scale safely.</div>
+        </div>
+        <div class="decision-row">
+          <div><b>Workflow model</b></div>
+          <div>DAG workflow with published immutable versions.</div>
+          <div>Business teams can change routes without engineering hardcoding every seller's process.</div>
+        </div>
+        <div class="decision-row">
+          <div><b>Partner/platform integration</b></div>
+          <div>Platform adapters as plugins.</div>
+          <div>Blinkit today, other platforms later, without rewriting workflow engine.</div>
+        </div>
+        <div class="decision-row">
+          <div><b>ERP integration</b></div>
+          <div>ERP actions and ASN sources as plugins.</div>
+          <div>Each brand may use a different ERP, so ERP details must stay outside the core.</div>
+        </div>
+        <div class="decision-row">
+          <div><b>State ownership</b></div>
+          <div>Postgres and workflow engine are source of truth.</div>
+          <div>Queues move work; database remembers truth.</div>
+        </div>
+        <div class="decision-row">
+          <div><b>Long-running ASN</b></div>
+          <div>Separate PO workflow, ASN tracking job, and ASN workflow.</div>
+          <div>Receiving a PO and sending a shipment notice happen on different clocks.</div>
+        </div>
+        <div class="decision-row">
+          <div><b>Audit and replay</b></div>
+          <div>Append-only records, raw payload evidence, safe replay controls.</div>
+          <div>When money and inventory are involved, support must prove what happened.</div>
+        </div>
+        <div class="decision-row">
+          <div><b>Future growth</b></div>
+          <div>New brands, new ERPs, and new platforms extend through plugins and workflow config.</div>
+          <div>Middleware only scales as a product if each new integration does not become a custom rebuild.</div>
+        </div>
+      </div>
+    </section>
+
+    <section id="config">
+      <div class="section-head">
+        <h2>Config Without Chaos</h2>
+        <div class="section-label">Workflow Rules</div>
+      </div>
+      <p class="lead">
+        Different sellers can run different flows. One seller may punch PO to ERP. Another may only sync a sheet. The workflow graph decides, and the selected published version is frozen for each run.
+      </p>
+      <div class="grid cols-3">
+        <article class="card">
+          <span class="tag green">Inheritance</span>
+          <h3>Global -> Platform -> Vendor -> Seller</h3>
+          <p>More specific config wins. Seller-level workflow overrides vendor/platform/global defaults when available.</p>
+        </article>
+        <article class="card">
+          <span class="tag violet">Immutable versions</span>
+          <h3>Published workflow cannot change</h3>
+          <p>Draft edits create a new version. Old running workflows keep old behavior and old config snapshot.</p>
+        </article>
+        <article class="card">
+          <span class="tag red">Publish validation</span>
+          <h3>Invalid graphs are blocked</h3>
+          <p>System rejects impossible flows, unsafe side effects, missing terminal paths, and ASN sync before ASN exists.</p>
+        </article>
+      </div>
+    </section>
+
+    <section id="validation-rulesets">
+      <div class="section-head">
+        <h2>Validation Rulesets</h2>
+        <div class="section-label">Quality Gates</div>
+      </div>
+      <p class="lead">
+        A validation ruleset is the checklist the workflow uses before it allows a PO or ASN to move forward. For a layperson: it is like a configurable quality gate that says what is allowed, what is suspicious, and what must stop.
+      </p>
+
+      <div class="ruleset-intro">
+        <article class="ruleset-summary">
+          <h3>Ruleset inheritance</h3>
+          <p>
+            Rules are layered from broad company safety rules down to seller-specific operating rules. Lower layers can add or customize only when the upper layer permits it.
+          </p>
+        </article>
+        <div class="ruleset-stamp">One final checklist per seller, built from inherited layers</div>
+      </div>
+
+      <div class="inheritance-grid">
+        <div class="inheritance-step"><b>Global</b><span>Non-negotiable platform safety: PO number, line items, duplicate line checks.</span></div>
+        <div class="inheritance-step"><b>Platform</b><span>Blinkit contract rules: facility, supplier identity, date format, required partner fields.</span></div>
+        <div class="inheritance-step"><b>Vendor</b><span>Customer business rules: SKU catalog, tax mapping, brand-specific checks.</span></div>
+        <div class="inheritance-step"><b>Seller</b><span>Warehouse or seller rules: delivery window, minimum order value, allowed overrides.</span></div>
+      </div>
+
+      <div class="mode-strip">
+        <article class="mode-card block">
+          <h3>Block</h3>
+          <p>Hard stop. Example: missing seller mapping or missing PO lines. Workflow routes to rejection/manual review.</p>
+        </article>
+        <article class="mode-card warn">
+          <h3>Warn</h3>
+          <p>Continue, but record finding. Example: low order value or unusual delivery window.</p>
+        </article>
+        <article class="mode-card observe">
+          <h3>Observe</h3>
+          <p>Dry-run/shadow mode. Store findings for learning without affecting live flow.</p>
+        </article>
+      </div>
+
+      <div class="ownership-grid">
+        <article class="card">
+          <span class="tag red">Admin level</span>
+          <h3>Controls safety and contracts</h3>
+          <p>System/platform admins create reusable rule definitions, lock non-negotiable rules, publish ruleset versions, and decide what lower levels may override.</p>
+        </article>
+        <article class="card">
+          <span class="tag green">User level</span>
+          <h3>Customizes allowed business rules</h3>
+          <p>Vendor or seller admins can add allowed field/reference/expression rules, adjust severity where permitted, and preview impact before publishing.</p>
+        </article>
+      </div>
+
+      <div class="custom-flow" aria-label="Validation ruleset customization lifecycle">
+        <div class="custom-step"><b>1. Pick from rule catalog</b><span>Reusable rule definitions like required field, SKU exists, tax mapping, or delivery date window.</span></div>
+        <div class="custom-step"><b>2. Build ruleset draft</b><span>Choose which rules apply for PO or ASN and set mode, severity, blocking, and config.</span></div>
+        <div class="custom-step"><b>3. Preview effective ruleset</b><span>Show final merged rules after global, platform, vendor, and seller inheritance.</span></div>
+        <div class="custom-step"><b>4. Dry-run samples</b><span>Run against sample raw/canonical documents before affecting live workflows.</span></div>
+        <div class="custom-step"><b>5. Publish version</b><span>Only immutable published versions run. Future workflow runs freeze selected ruleset in config snapshot.</span></div>
+      </div>
+
+    </section>
+
+    <section id="features">
+      <div class="section-head">
+        <h2>Features We Support</h2>
+        <div class="section-label">Scope and Future Ease</div>
+      </div>
+      <p class="lead">
+        Because we are middleware, the architecture must handle repeated variation. Every new brand may bring a different ERP, different seller rules, different item mappings, and eventually different platforms beyond Blinkit.
+      </p>
+
+      <div class="feature-matrix">
+        <article class="feature-card">
+          <h3>Multi-platform onboarding</h3>
+          <p>Blinkit is first. Future platforms get their own partner plugin for auth, parsing, mapping, and outbound API payloads.</p>
+        </article>
+        <article class="feature-card amber">
+          <h3>Multi-brand and multi-seller setup</h3>
+          <p>Vendor, seller, warehouse, tax, contact, platform account, and SKU mappings are stored separately so each customer can differ.</p>
+        </article>
+        <article class="feature-card blue">
+          <h3>Configurable DAG workflows</h3>
+          <p>Drag/drop style workflows can route by seller need: ERP, sheet, approval, notification, ack, ASN scheduling, or amendment.</p>
+        </article>
+        <article class="feature-card green">
+          <h3>ERP integration flexibility</h3>
+          <p>ERP punch and ERP ASN readiness are plugins. New brands can bring new ERP APIs without touching platform core.</p>
+        </article>
+        <article class="feature-card violet">
+          <h3>Validation and approval rules</h3>
+          <p>Rulesets and approval policies can be inherited globally, per platform, per vendor, or per seller.</p>
+        </article>
+        <article class="feature-card red">
+          <h3>Operational recovery</h3>
+          <p>Retries, dead letters, manual review, replay, audit logs, and journey views help ops recover safely when integrations fail.</p>
+        </article>
+      </div>
+
+      <div class="growth-ladder">
+        <div class="growth-step"><b>Brand 1</b><span>Use Blinkit plugin, ERP plugin, default PO and ASN workflows.</span></div>
+        <div class="growth-step"><b>Brand 2</b><span>Reuse core, add different ERP plugin and seller-specific workflow.</span></div>
+        <div class="growth-step"><b>Brand 3</b><span>Reuse core, add sheet route, manual approval, different ASN source policy.</span></div>
+        <div class="growth-step"><b>Future platform</b><span>Add new platform plugin while preserving workflow, idempotency, audit, and ops model.</span></div>
+      </div>
+    </section>
+
+    <section id="glossary">
+      <div class="section-head">
+        <h2>Glossary</h2>
+        <div class="section-label">Plain Terms</div>
+      </div>
+      <div class="glossary">
+        <div class="term"><b>EDI</b><span>Business document exchange between companies and systems.</span></div>
+        <div class="term"><b>PO</b><span>Purchase Order. Blinkit asks seller to supply items.</span></div>
+        <div class="term"><b>ASN</b><span>Advance Shipment Notice. Seller tells Blinkit what is shipped, invoiced, batched, and packed.</span></div>
+        <div class="term"><b>Canonical document</b><span>Our common internal format, so core system does not care about Blinkit field names.</span></div>
+        <div class="term"><b>Workflow node</b><span>One visible step in a configurable workflow, such as validation or ERP punch.</span></div>
+        <div class="term"><b>Action plugin</b><span>Code that performs one workflow step, like calling ERP or sending Blinkit ASN.</span></div>
+        <div class="term"><b>Idempotency</b><span>Safety rule: retrying or receiving duplicates must not create duplicate side effects.</span></div>
+        <div class="term"><b>Outbox</b><span>Database-backed way to publish queue messages only after transaction commits.</span></div>
+        <div class="term"><b>Dead letter</b><span>Failed job parked for manual review after retries are exhausted.</span></div>
+        <div class="term"><b>Journey view</b><span>Operator timeline showing PO, ASN, jobs, workflows, attempts, and partner calls together.</span></div>
+      </div>
+    </section>
+
+    <section id="summary">
+      <div class="section-head">
+        <h2>One-Line Summary</h2>
+        <div class="section-label">Close</div>
+      </div>
+      <div class="callout">
+        We are building a reliable control tower for marketplace documents: receive Blinkit POs, run seller-specific workflows, safely call ERP and Blinkit, wait for shipment data without losing state, send ASN, and prove every step later.
+      </div>
+      <div class="footer">
+        Source basis: docs/edi-integration-technical-design.md and docs/edi-production-database-and-queue-schema.md
+      </div>
+    </section>
+  </main>
+
+  <script>
+    const tabs = Array.from(document.querySelectorAll(".flow-tab"));
+    const panels = Array.from(document.querySelectorAll(".journey"));
+
+    tabs.forEach((tab) => {
+      tab.addEventListener("click", () => {
+        tabs.forEach((item) => item.setAttribute("aria-selected", String(item === tab)));
+        panels.forEach((panel) => panel.classList.toggle("active", panel.id === tab.getAttribute("aria-controls")));
+      });
+    });
+
+    const progress = document.getElementById("progress");
+    const updateProgress = () => {
+      const scrollTop = document.documentElement.scrollTop || document.body.scrollTop;
+      const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+      const ratio = height > 0 ? scrollTop / height : 0;
+      progress.style.width = `${Math.max(0, Math.min(1, ratio)) * 100}%`;
+    };
+    document.addEventListener("scroll", updateProgress, { passive: true });
+    updateProgress();
+
+    document.getElementById("presenterToggle").addEventListener("click", () => {
+      document.body.classList.toggle("presenter");
+    });
+  </script>
+</body>
+</html>
