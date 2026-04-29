@@ -1712,7 +1712,7 @@ same repo / same deployable
         <div class="section-label">What Must Always Be True</div>
       </div>
       <p class="lead">
-        These are the rules that make the middleware safe. If any one of these is broken, the system may duplicate orders, lose audit evidence, or become impossible to operate as more brands, ERPs, and platforms are added.
+        These are the rules that make the middleware safe. If any one of these is broken, the system may duplicate orders, lose audit evidence, or become impossible to operate as more brands, ERPs, ASN sources, and platforms are added.
       </p>
 
       <div class="principle-board">
@@ -1733,22 +1733,30 @@ same repo / same deployable
             <div class="principle-no">04</div>
             <div><h3>Workflow engine owns state</h3><p>Action plugins do work and return results. They do not secretly mutate document state. This keeps the system understandable.</p></div>
           </article>
+          <article class="principle">
+            <div class="principle-no">05</div>
+            <div><h3>Canonical format at the center</h3><p>Every platform, ERP, sheet, and ASN source maps into the same internal PO and ASN shape before workflows run.</p></div>
+          </article>
         </div>
         <div class="principle-list">
           <article class="principle">
-            <div class="principle-no">05</div>
+            <div class="principle-no">06</div>
             <div><h3>Plugin-first integrations</h3><p>Blinkit, future platforms, ERPs, sheets, and notification tools plug in around the core instead of changing the core every time.</p></div>
           </article>
           <article class="principle">
-            <div class="principle-no">06</div>
+            <div class="principle-no">07</div>
             <div><h3>Long waits are durable jobs</h3><p>ASN can happen days later. We store waiting state in ASN tracking jobs, not sleeping workers or open workflow actions.</p></div>
           </article>
           <article class="principle">
-            <div class="principle-no">07</div>
+            <div class="principle-no">08</div>
+            <div><h3>Source choice is configuration</h3><p>A seller can use ERP, sheets, portal upload, or another ASN source. Workflow config decides source order without branching the core.</p></div>
+          </article>
+          <article class="principle">
+            <div class="principle-no">09</div>
             <div><h3>Config is versioned and frozen</h3><p>A workflow run uses the workflow/rules/config version selected at start. New config changes do not rewrite old history.</p></div>
           </article>
           <article class="principle">
-            <div class="principle-no">08</div>
+            <div class="principle-no">10</div>
             <div><h3>Every action is traceable</h3><p>Ops must answer: what arrived, what we created, which rule ran, what external call happened, what response came back.</p></div>
           </article>
         </div>
